@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .asset-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-top: 15px;
+    }
+    .asset-card h3 {
+      margin-top: 0;
+    }
+    .asset-card p {
+      margin: 6px 0;
+    }
+    .asset-card button {
+      margin-top: 10px;
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(90deg,#667eea,#764ba2);
+      color: #fff;
+      cursor: pointer;
+    }
+    .asset-card button:hover {
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <div class="navbar">
+    <h1>📦 Asset Management</h1>
+    <span class="menu-toggle" onclick="toggleMenu()">☰</span>
+    <ul>
+      <li><a href="asset_search_by_serial_partial.html">Dashboard</a></li>
+      <li><a href="logs.html">Logs</a></li>
+      <li><button onclick="logout()">Logout</button></li>
+    </ul>
+  </div>
+
+  <!-- Add Asset -->
+  <div class="card">
+    <h3>Add Asset</h3>
+    <select id="assetType">
+      <option value="Desktop">Desktop</option>
+      <option value="Printer">Printer</option>
+      <option value="Network">Network</option>
+    </select>
+    <input type="text" id="serialInput" placeholder="Serial">
+    <input type="text" id="brandInput" placeholder="Brand">
+    <input type="text" id="modelInput" placeholder="Model">
+    <input type="text" id="locationInput" placeholder="Location">
+    <input type="number" id="quantityInput" placeholder="Quantity" min="1" value="1">
+    <button onclick="addAsset()">Add Asset</button>
+    <p id="addMessage"></p>
+  </div>
+
+  <!-- Search Asset -->
+  <div class="card">
+    <h3>Search Asset</h3>
+    <input type="text" id="slnoInput" placeholder="Enter Serial">
+    <button onclick="searchAsset()">Search</button>
+    <div id="results"></div>
+  </div>
+
+  <!-- All Assets -->
+  <div class="card">
+    <h3>All Assets</h3>
+    <button onclick="listAssets()">Refresh List</button>
+    <table id="assetsTable">
+      <thead>
+        <tr><th>Type</th><th>Serial</th><th>Brand</th><th>Model</th><th>Location</th><th>Qty</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+<script>
+const API_BASE = "http://localhost:5000";
+let token = localStorage.getItem("token");
+if (!token) window.location.href = "login.html";
+
+function toggleMenu() {
+  document.querySelector(".navbar ul").classList.toggle("show");
+}
+function logout() {
+  localStorage.removeItem("token");
+  window.location.href = "login.html";
+}
+
+async function addAsset() {
+  const type = document.getElementById("assetType").value;
+  const serial = document.getElementById("serialInput").value;
+  const brand = document.getElementById("brandInput").value;
+  const model = document.getElementById("modelInput").value;
+  const location = document.getElementById("locationInput").value;
+  const quantity = document.getElementById("quantityInput").value;
+
+  const res = await fetch(`${API_BASE}/asset/add`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ type, serial, brand, model, location, quantity })
+  });
+  const data = await res.json();
+  document.getElementById("addMessage").innerText = data.msg || "Saved!";
+  listAssets();
+}
+
+async function searchAsset() {
+  const slno = document.getElementById("slnoInput").value;
+  const res = await fetch(`${API_BASE}/asset/search/${slno}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+
+  const results = document.getElementById("results");
+  results.innerHTML = "";
+
+  if (data.msg) {
+    results.innerText = data.msg;
+    return;
+  }
+
+  results.innerHTML = `
+    <div class="asset-card">
+      <h3>Asset Details</h3>
+      <p><b>Type:</b> ${data.type}</p>
+      <p><b>Serial:</b> ${data.serial}</p>
+      <p><b>Brand:</b> ${data.brand || "-"}</p>
+      <p><b>Model:</b> ${data.model || "-"}</p>
+      <p><b>Location:</b> ${data.location || "-"}</p>
+      <p><b>Quantity:</b> ${data.quantity || 1}</p>
+      <p><b>Status:</b> ${data.status}</p>
+      <div>
+        ${data.status === "available"
+          ? `<button onclick="issueAsset('${data.serial}')">📤 Issue</button>`
+          : `<button onclick="receiveAsset('${data.serial}')">📥 Receive</button>`}
+      </div>
+    </div>
+  `;
+}
+
+async function issueAsset(serial) {
+  const receiver = prompt("Enter receiver name/email:");
+  if (!receiver) return;
+  await fetch(`${API_BASE}/asset/issue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ serial, issuer: "admin", receiver })
+  });
+  alert("Asset issued successfully!");
+  searchAsset();
+  listAssets();
+}
+
+async function receiveAsset(serial) {
+  const receiver = prompt("Confirm receiver name/email:");
+  if (!receiver) return;
+  await fetch(`${API_BASE}/asset/receive`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ serial, receiver })
+  });
+  alert("Asset received successfully!");
+  searchAsset();
+  listAssets();
+}
+
+async function listAssets() {
+  const res = await fetch(`${API_BASE}/asset/list`, { headers: { Authorization: `Bearer ${token}` } });
+  const assets = await res.json();
+  const tbody = document.getElementById("assetsTable").querySelector("tbody");
+  tbody.innerHTML = "";
+  assets.forEach(asset => {
+    const row = `<tr>
+      <td>${asset.type}</td>
+      <td>${asset.serial}</td>
+      <td>${asset.brand}</td>
+      <td>${asset.model}</td>
+      <td>${asset.location}</td>
+      <td>${asset.quantity || 1}</td>
+      <td>${asset.status}</td>
+      <td>
+        ${asset.status === "available"
+          ? `<button onclick="issueAsset('${asset.serial}')">📤 Issue</button>`
+          : `<button onclick="receiveAsset('${asset.serial}')">📥 Receive</button>`}
+        <button onclick="deleteAsset('${asset.serial}')">🗑️ Delete</button>
+      </td>
+    </tr>`;
+    tbody.innerHTML += row;
+  });
+}
+
+async function deleteAsset(serial) {
+  await fetch(`${API_BASE}/asset/${serial}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+  listAssets();
+}
+
+listAssets();
+</script>
+</body>
+</html>

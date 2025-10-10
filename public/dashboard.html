@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dashboard - Asset Management</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+:root{
+  --sidebar-width:250px;
+  --sidebar-collapsed-width:70px;
+  --primary-color:#1b365d;
+  --accent-color:#0a74da;
+  --bg-color:#f7f7f8;
+  --text-color:#ffffff;
+  --hover-color:#0a4a87;
+  --transition-speed:0.28s;
+  --glass: rgba(255,255,255,0.06);
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background:var(--bg-color);
+  color:#222;
+  min-height:100vh;
+  display:flex;
+}
+
+/* Sidebar */
+.sidebar{
+  position:fixed;
+  top:0; left:0; height:100vh;
+  width:var(--sidebar-width);
+  background:linear-gradient(180deg,var(--primary-color), #133253);
+  color:var(--text-color);
+  transition: width var(--transition-speed) cubic-bezier(.2,.9,.3,1), transform .35s ease;
+  display:flex; flex-direction:column; z-index:120; overflow:hidden;
+  box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+}
+.sidebar.collapsed{ width:var(--sidebar-collapsed-width); }
+.sidebar .sidebar-header{
+  height:64px; display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:1.05rem; border-bottom:1px solid rgba(255,255,255,0.06);
+  gap:8px;
+}
+.sidebar .sidebar-header .logo-icon{ font-size:20px; transform:translateY(-1px); }
+.sidebar ul{ list-style:none; margin:0; padding:8px 0; flex:1; }
+.sidebar ul li{
+  display:flex; align-items:center; gap:12px; padding:12px 16px; margin:2px 8px; border-radius:8px;
+  cursor:pointer; transition: background .18s ease, transform .18s ease;
+  position:relative; color:var(--text-color);
+}
+.sidebar ul li i{ width:28px; text-align:center; font-style:normal; font-size:18px; }
+.sidebar ul li span{ white-space:nowrap; transition:opacity .2s ease, transform .2s ease; }
+.sidebar ul li:hover{ background: rgba(255,255,255,0.04); transform: translateX(6px); }
+.sidebar.collapsed ul li span{ opacity:0; transform:translateX(-6px); pointer-events:none; }
+.sidebar.collapsed ul li:hover::after{
+  content:attr(data-tooltip);
+  position:absolute; left:calc(var(--sidebar-collapsed-width) + 8px); top:50%;
+  transform:translateY(-50%); background:#222; color:#fff; padding:6px 10px; border-radius:6px;
+  font-size:13px; box-shadow:0 6px 18px rgba(0,0,0,0.25); white-space:nowrap; z-index:300;
+}
+.sidebar .sidebar-toggle{
+  padding:12px; cursor:pointer; text-align:center; border-top:1px solid rgba(255,255,255,0.04);
+  transition: background var(--transition-speed);
+}
+.sidebar .sidebar-toggle:hover{ background: rgba(255,255,255,0.03); }
+.sidebar.collapsed .sidebar-toggle{ transform: rotate(180deg); }
+
+/* Navbar */
+.navbar{
+  position:fixed; top:0; left:var(--sidebar-width); right:0; height:64px;
+  background:#fff; display:flex; align-items:center; justify-content:center; gap:12px;
+  box-shadow:0 1px 8px rgba(0,0,0,0.06); transition:left var(--transition-speed),width var(--transition-speed);
+  z-index:100; padding:0 20px; font-weight:700; color:#1b365d; font-size:1.15rem;
+}
+.sidebar.collapsed ~ .navbar{ left:var(--sidebar-collapsed-width); width:calc(100% - var(--sidebar-collapsed-width)); }
+.navbar .brand-center{ text-align:center; display:flex; align-items:center; gap:10px; }
+.navbar .brand-center .title-sub{ font-weight:600; font-size:14px; color:#3a4a63; opacity:.88; }
+
+/* Profile */
+.profile{
+  position:absolute; right:16px; top:12px; width:44px; height:44px; border-radius:50%;
+  background:var(--accent-color); display:flex; align-items:center; justify-content:center; color:#fff;
+  cursor:pointer; box-shadow: 0 6px 18px rgba(10,116,218,0.12);
+}
+.profile-panel{
+  display:none; position:absolute; right:6px; top:68px; background:#fff; color:#333;
+  min-width:220px; border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,0.12); padding:12px; z-index:220;
+}
+.profile-panel h3{ margin:0 0 8px 0; font-size:14px; }
+.profile-panel button{ width:100%; padding:10px; border-radius:8px; border:none; background:linear-gradient(90deg,#ff416c,#ff4b2b); color:#fff; font-weight:700; cursor:pointer; }
+
+/* Main content */
+.main-content{
+  margin-left:var(--sidebar-width); padding:92px 32px 32px 32px; width:calc(100% - var(--sidebar-width));
+  transition:margin-left var(--transition-speed), width var(--transition-speed);
+}
+.sidebar.collapsed ~ .main-content{ margin-left:var(--sidebar-collapsed-width); width:calc(100% - var(--sidebar-collapsed-width)); }
+
+/* Contact form */
+.form-container{
+  width:420px; max-width:100%; background:linear-gradient(180deg,#111,#111) padding-box,
+  linear-gradient(145deg,#e81cff,#40c9ff) border-box; border:2px solid transparent; padding:22px; border-radius:12px; color:#fff;
+}
+.contact-title{ font-size:18px; margin:0 0 12px 0; color:#f5f7fb; font-weight:700; }
+.form-row{ display:flex; gap:12px; flex-direction:column; }
+label{ font-size:12px;color:#cbd5e1;margin-bottom:6px; font-weight:600; }
+input[type="text"], input[type="email"], input[type="tel"], input[type="file"], textarea{
+  width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.06); background:rgba(255,255,255,0.03); color:#fff;
+  font-size:13px; outline:none; transition:box-shadow .15s;
+}
+input::file-selector-button{ background:#0a74da; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
+textarea{ min-height:110px; resize:vertical; }
+.btn { padding:10px 14px; border-radius:8px; border:none; background:#fff; color:#111; font-weight:700; cursor:pointer; }
+.btn:disabled{ opacity:0.6; cursor:not-allowed; }
+
+.toast{
+  position:fixed; right:20px; bottom:20px; background:#111; color:#fff; padding:12px 16px; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.18);
+  display:none; z-index:9999;
+}
+.spinner{ display:inline-block; width:16px; height:16px; border-radius:50%; border:2px solid rgba(0,0,0,0.08); border-top-color:#fff; animation:spin .9s linear infinite; vertical-align:middle; margin-right:6px; }
+@keyframes spin{ to{ transform:rotate(360deg) } }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar collapsed" id="sidebar">
+  <div class="sidebar-header"><span class="logo-icon"></span><span class="logo-text">Assets</span></div>
+  <ul>
+    <li data-tooltip="Add Asset" onclick="location.href='add_asset.html'"><i>➕</i><span>Add Asset</span></li>
+    <li data-tooltip="Issue Asset" onclick="location.href='issue_asset.html'"><i>📤</i><span>Issue Asset</span></li>
+    <li data-tooltip="Receive Asset" onclick="location.href='receive_asset.html'"><i>📥</i><span>Receive Asset</span></li>
+    <li data-tooltip="Delete Asset" onclick="location.href='delete_asset.html'"><i>❌</i><span>Delete Asset</span></li>
+    <li data-tooltip="Reports" onclick="location.href='report.html'"><i>📊</i><span>Reports</span></li>
+    <li data-tooltip="Contact Developer" onclick="document.getElementById('contactDev').scrollIntoView({behavior:'smooth'})"><i>📧</i><span>Contact Developer</span></li>
+  </ul>
+  <div class="sidebar-toggle" id="toggleBtn">☰</div>
+</div>
+
+<!-- Navbar -->
+<div class="navbar">
+  <div class="brand-center">
+    <div style="font-size:16px;font-weight:800;color:#12355a">Asset Management System</div>
+    <div class="title-sub">Centralized asset tracking & control</div>
+  </div>
+  <div class="profile" id="profileBtn">👤</div>
+  <div class="profile-panel" id="profilePanel">
+    <h3 id="userName">User: Guest</h3>
+    <div id="userEmail" style="margin-bottom:8px;color:#666;font-size:13px">Signed in</div>
+    <button onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="main-content">
+  <h1 id="welcomeTitle" style="font-size:22px;color:#21324a;margin:0 0 6px 0">Welcome,</h1>
+  <div style="color:#51637c;font-size:14px">Choose an action from the left sidebar</div>
+
+  <div style="height:20px"></div>
+
+  <!-- Contact Developer Form -->
+  <div class="form-container" id="contactDev">
+    <div class="contact-title">📧 Contact Developer</div>
+    <form id="helpForm" class="form-row" enctype="multipart/form-data">
+      <div>
+        <label for="name">Your name</label>
+        <input id="name" type="text" placeholder="Jane Doe" />
+      </div>
+      <div>
+        <label for="email">Your email</label>
+        <input id="email" type="email" placeholder="you@company.com" required />
+      </div>
+      <div>
+        <label for="subject">Subject</label>
+        <input id="subject" type="text" placeholder="Short summary" required />
+      </div>
+      <div>
+        <label for="message">How can we help you?</label>
+        <textarea id="message" placeholder="Describe the issue" required></textarea>
+      </div>
+      <div>
+        <label for="screenshot">Attach screenshot (optional)</label>
+        <input id="screenshot" type="file" name="screenshot" accept="image/*" />
+      </div>
+      <div style="display:flex; gap:12px; align-items:center; margin-top:6px;">
+        <button id="submitBtn" class="btn" type="submit"><span class="spinner" id="spinner" style="display:none"></span> Send Message</button>
+        <div style="color:#9fb0c8;font-size:13px">We will respond within 3 business days.</div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+function showToast(msg, timeout=4000){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  clearTimeout(t._to);
+  t._to = setTimeout(()=> t.style.display = "none", timeout);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const sidebar = document.getElementById("sidebar");
+  const toggleBtn = document.getElementById("toggleBtn");
+  const profileBtn = document.getElementById("profileBtn");
+  const profilePanel = document.getElementById("profilePanel");
+
+  sidebar.classList.add("collapsed");
+  toggleBtn.onclick = () => sidebar.classList.toggle("collapsed");
+  profileBtn.onclick = e => {
+    e.stopPropagation();
+    profilePanel.style.display = profilePanel.style.display === "block" ? "none" : "block";
+  };
+  window.addEventListener("click", e => {
+    if(!e.target.closest("#profilePanel") && !e.target.closest("#profileBtn"))
+      profilePanel.style.display = "none";
+  });
+
+  // Load user info from localStorage
+  const name = localStorage.getItem("currentUserName") || "Guest";
+  const email = localStorage.getItem("currentUserEmail") || "Signed in";
+  document.getElementById("userName").textContent = "User: " + name;
+  document.getElementById("userEmail").textContent = email;
+  document.getElementById("welcomeTitle").textContent = "Welcome, " + name;
+
+  const form = document.getElementById("helpForm");
+  const btn = document.getElementById("submitBtn");
+  const spinner = document.getElementById("spinner");
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const nameVal = document.getElementById("name").value.trim();
+    const emailVal = document.getElementById("email").value.trim();
+    const subjectVal = document.getElementById("subject").value.trim();
+    const messageVal = document.getElementById("message").value.trim();
+    const screenshot = document.getElementById("screenshot").files[0];
+
+    if(!emailVal || !subjectVal || !messageVal){
+      showToast("Please complete required fields.");
+      return;
+    }
+
+    btn.disabled = true;
+    spinner.style.display = "inline-block";
+    const formData = new FormData();
+    formData.append("name", nameVal);
+    formData.append("email", emailVal);
+    formData.append("subject", subjectVal);
+    formData.append("message", messageVal);
+    if(screenshot) formData.append("screenshot", screenshot);
+
+    try{
+      const resp = await fetch("/api/contact", { method:"POST", body:formData });
+      if(resp.ok){
+        showToast("✅ Message sent successfully.");
+        form.reset();
+      } else {
+        const err = await resp.json();
+        showToast("❌ Failed: " + (err.msg || resp.statusText));
+      }
+    }catch(err){
+      showToast("⚠️ Error: "+ err.message);
+    }
+    btn.disabled = false;
+    spinner.style.display = "none";
+  });
+});
+
+function logout(){
+  localStorage.removeItem("token");
+  localStorage.removeItem("currentUserName");
+  localStorage.removeItem("currentUserEmail");
+  location.href="login.html";
+}
+</script>
+</body>
+</html>

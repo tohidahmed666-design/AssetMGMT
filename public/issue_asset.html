@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Issue Asset</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .form-container { 
+    max-width: 500px; 
+    margin: 40px auto; 
+    background: white; 
+    padding: 30px; 
+    border-radius: 10px; 
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.1); 
+  }
+  .form-container input, .form-container button { 
+    width: 100%; 
+    margin: 10px 0; 
+    padding: 10px; 
+    font-size: 14px; 
+  }
+  .form-container button { 
+    background: linear-gradient(to right, #00c6ff, #0072ff); 
+    border: none; 
+    color: white; 
+    cursor: pointer; 
+    font-weight: bold; 
+    border-radius: 6px; 
+  }
+  .back-button { 
+    position: fixed; 
+    top: 100px; 
+    left: 30px; 
+    text-align: center; 
+    cursor: pointer; 
+  }
+  .back-button img { 
+    width: 40px; 
+    height: 40px; 
+    display: block; 
+    margin: 0 auto; 
+  }
+  .back-button span { 
+    display: block; 
+    margin-top: 5px; 
+    font-size: 13px; 
+    color: rgb(255, 255, 255); 
+  }
+  #msg { 
+    font-weight: bold; 
+    text-align: center; 
+    margin-top: 10px; 
+  }
+</style>
+</head>
+<body>
+<div class="navbar">
+  <h1>📦 Asset Management</h1>
+  <ul>
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="view_assets.html">View Assets</a></li>
+    <li><a href="logs.html">Logs</a></li>
+    <li><button onclick="logout()">Logout</button></li>
+  </ul>
+</div>
+
+<div class="back-button" onclick="goBack()">
+  <img src="backWhite.png" alt="Back">
+  <span>Back to Dashboard</span>
+</div>
+
+<div class="form-container">
+  <h2>📤 Issue Asset</h2>
+  <form id="issueForm">
+    <input type="text" id="assetNumber" placeholder="Asset Number" required>
+    <input type="text" id="assetType" placeholder="Asset Type" readonly>
+    <input type="text" id="assetBrand" placeholder="Brand" readonly>
+    <input type="text" id="assetModel" placeholder="Model" readonly>
+    <input type="text" id="issuerName" placeholder="Issuer Name" required>
+    <input type="email" id="issuerEmail" placeholder="Issuer Email ID" required>
+    <input type="text" id="issuedTo" placeholder="Issued To (Receiver Name)" required>
+    <input type="email" id="receiverEmail" placeholder="Receiver Email ID" required>
+    
+    <button type="submit">Issue</button>
+    <button type="button" id="scanBtn">📷 Scan Barcode</button>
+    <p id="msg"></p>
+  </form>
+</div>
+
+<script>
+const API_BASE = "http://localhost:5000/api/assets";
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+
+// --- Elements ---
+const assetField = document.getElementById("assetNumber");
+const assetTypeField = document.getElementById("assetType");
+const assetBrandField = document.getElementById("assetBrand");
+const assetModelField = document.getElementById("assetModel");
+const issuerNameField = document.getElementById("issuerName");
+const issuerEmailField = document.getElementById("issuerEmail");
+const issuedToField = document.getElementById("issuedTo");
+const receiverEmailField = document.getElementById("receiverEmail");
+const msg = document.getElementById("msg");
+
+// --- Pre-fill issuer info from localStorage ---
+const userData = JSON.parse(localStorage.getItem("user") || "{}");
+if (userData.name) issuerNameField.value = userData.name;
+if (userData.email) issuerEmailField.value = userData.email;
+
+// --- Pre-fill asset from query param ---
+const params = new URLSearchParams(window.location.search);
+const preAsset = params.get("asset");
+if (preAsset) {
+  assetField.value = preAsset;
+  fetchAssetDetails(preAsset);
+}
+
+// --- Wireless scanner handler ---
+document.getElementById("scanBtn").addEventListener("click", () => {
+  assetField.value = "";
+  assetField.focus();
+  msg.innerText = "🔎 Ready to scan... Scan the asset barcode now.";
+  msg.style.color = "black";
+});
+
+// --- Auto-detect asset code while typing/scanning ---
+assetField.addEventListener("input", async () => {
+  const val = assetField.value.trim();
+  if (val.startsWith("ASSET-")) {
+    msg.innerText = `🔄 Detecting asset details for: ${val}`;
+    msg.style.color = "blue";
+    fetchAssetDetails(val);
+  } else {
+    assetTypeField.value = "";
+    assetBrandField.value = "";
+    assetModelField.value = "";
+  }
+});
+
+// --- Fetch asset details ---
+async function fetchAssetDetails(assetNumber) {
+  try {
+    const res = await fetch(`${API_BASE}/${encodeURIComponent(assetNumber)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) throw new Error("Asset not found");
+    const asset = await res.json();
+    assetTypeField.value = asset.type || "";
+    assetBrandField.value = asset.brand || "";
+    assetModelField.value = asset.model || "";
+    msg.innerText = `✅ Asset found: ${assetNumber}`;
+    msg.style.color = "green";
+  } catch (err) {
+    assetTypeField.value = "";
+    assetBrandField.value = "";
+    assetModelField.value = "";
+    msg.innerText = `❌ Asset not found: ${assetNumber}`;
+    msg.style.color = "red";
+  }
+}
+
+// --- Issue Form Submission ---
+document.getElementById("issueForm").addEventListener("submit", async e => {
+  e.preventDefault();
+
+  const assetNumber = assetField.value.trim();
+  const issuerName = issuerNameField.value.trim();
+  const issuerEmail = issuerEmailField.value.trim();
+  const issuedTo = issuedToField.value.trim();
+  const receiverEmail = receiverEmailField.value.trim();
+
+  if (!assetNumber || !issuerName || !issuerEmail || !issuedTo || !receiverEmail) {
+    msg.innerText = "❌ Please fill all required fields";
+    msg.style.color = "red";
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(issuerEmail) || !emailRegex.test(receiverEmail)) {
+    msg.innerText = "❌ Invalid email format";
+    msg.style.color = "red";
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/issue`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        asset_number: assetNumber,
+        issuer_name: issuerName,
+        issuer_email: issuerEmail,
+        issued_to: issuedTo,
+        receiver_email: receiverEmail
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      msg.innerText = `✅ ${data.msg || "Asset issued successfully"}`;
+      msg.style.color = "green";
+      localStorage.setItem("refreshAssets", "true");
+      setTimeout(() => location.href = "view_assets.html", 1000);
+    } else {
+      msg.innerText = `❌ ${data.msg || data.error || "Server error"}`;
+      msg.style.color = "red";
+    }
+  } catch (err) {
+    console.error(err);
+    msg.innerText = "❌ Server error while issuing asset";
+    msg.style.color = "red";
+  }
+});
+
+// --- Navigation ---
+function goBack() { location.href = "dashboard.html"; }
+function logout() { localStorage.removeItem("token"); localStorage.removeItem("user"); location.href = "login.html"; }
+</script>
+</body>
+</html>

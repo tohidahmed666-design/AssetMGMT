@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dispose Asset / Property</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .back-button {
+      position: fixed;
+      top: 100px;
+      left: 30px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .back-button img {
+      width: 40px;
+      height: 40px;
+      display: block;
+      margin: 0 auto;
+    }
+    .back-button span {
+      display: block;
+      margin-top: 5px;
+      font-size: 13px;
+      color: white;
+    }
+    .form-container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: white;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+    }
+    .form-container h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .form-container input,
+    .form-container select,
+    .form-container textarea,
+    .form-container button {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .form-container button {
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      transition: 0.3s;
+    }
+    .dispose-btn {
+      background: linear-gradient(to right, #ff416c, #ff4b2b);
+      color: white;
+    }
+    .dispose-btn:hover { opacity: 0.9; }
+    .undo-btn {
+      background: linear-gradient(to right, #00b09b, #96c93d);
+      color: white;
+      display: none;
+    }
+    .undo-btn:hover { opacity: 0.9; }
+    #msg {
+      text-align: center;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    .audit-log {
+      margin-top: 30px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 13px;
+      border: 1px solid #ddd;
+    }
+    .audit-log h3 { margin: 0 0 10px 0; font-size: 15px; color:#21324a; }
+    .audit-log-entry { padding: 5px 0; border-bottom: 1px solid #eee; }
+    #scanner { width:100%; max-width:400px; margin:15px auto; }
+    #assetPreview {
+      display:none;
+      margin-top:20px;
+      padding:15px;
+      border:1px solid #ddd;
+      border-radius:8px;
+      background:#f9f9f9;
+    }
+    #assetPreview p { margin:4px 0; }
+  </style>
+</head>
+<body>
+  <div class="navbar">
+    <h1>📦 Asset Management</h1>
+    <ul>
+      <li><a href="dashboard.html">Dashboard</a></li>
+      <li><a href="view_assets.html">View Assets</a></li>
+      <li><a href="logs.html">Logs</a></li>
+      <li><button onclick="logout()">Logout</button></li>
+    </ul>
+  </div>
+
+  <div class="back-button" onclick="goBack()">
+    <img src="backWhite.png" alt="Back">
+    <span>Back to Dashboard</span>
+  </div>
+
+  <div class="form-container">
+    <h2>🗑️ Dispose Asset / Property</h2>
+
+    <!-- Barcode Scanner -->
+    <div id="scanner"></div>
+    <button onclick="startScanner()">📷 Start Scan</button>
+
+    <!-- Asset Preview -->
+    <div id="assetPreview">
+      <h4>Asset Details</h4>
+      <p><b>Serial:</b> <span id="pSerial"></span></p>
+      <p><b>Type:</b> <span id="pType"></span></p>
+      <p><b>Status:</b> <span id="pStatus"></span></p>
+      <p><b>Location:</b> <span id="pLocation"></span></p>
+    </div>
+
+    <form id="disposeForm">
+      <input type="text" id="serial" placeholder="Asset Serial Number" required>
+      <select id="reason" required>
+        <option value="">Select Disposal Reason</option>
+        <option value="obsolete">Obsolete / End of Life</option>
+        <option value="damaged">Damaged / Non-repairable</option>
+        <option value="auction">Sold / Auctioned</option>
+        <option value="legal">Legal Clearance / Seized Property</option>
+        <option value="court">Court Ordered Disposal</option>
+        <option value="transfer">Transferred to Other Department</option>
+      </select>
+      <input type="text" id="approvedBy" placeholder="Approved By (Supervisor)" required>
+      <input type="text" id="approvedBy2" placeholder="Approved By (Superintendent)" required>
+      <textarea id="remarks" placeholder="Additional Notes / Court Order Ref" rows="3"></textarea>
+      <input type="file" id="approvalDoc" accept=".pdf,.jpg,.png" />
+      <button type="submit" class="dispose-btn">Dispose</button>
+    </form>
+
+    <p id="msg"></p>
+    <button id="undoBtn" class="undo-btn">↩ Undo Disposal</button>
+
+    <!-- Audit Trail -->
+    <div class="audit-log" id="auditLog">
+      <h3>📜 Disposal Audit Trail</h3>
+      <div id="auditEntries"></div>
+    </div>
+  </div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+const API_BASE = "http://localhost:5000/api/assets"; // <-- updated base
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+
+let lastDisposed = null;
+let geoLocation = null;
+
+// -------------------------
+// Get GPS Location
+// -------------------------
+navigator.geolocation.getCurrentPosition(
+  pos => geoLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude },
+  err => console.warn("Geo not available", err)
+);
+
+// -------------------------
+// Load Audit Log
+// -------------------------
+async function loadAuditLog() {
+  try {
+    const res = await fetch(`${API_BASE}/disposal-log`, { // <-- fixed endpoint
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const out = await res.json();
+    const container = document.getElementById("auditEntries");
+    container.innerHTML = "";
+    if (Array.isArray(out) && out.length) {
+      out.forEach(log => {
+        const div = document.createElement("div");
+        div.className = "audit-log-entry";
+        div.textContent = `${log.date || "-"} - ${log.serial || "-"} | ${log.reason || "-"} | Approved: ${log.approvedBy || "-"}, ${log.approvedBy2 || "-"} | User: ${log.user || "-"} | GPS: ${log.location || 'N/A'}`;
+        container.appendChild(div);
+      });
+    } else {
+      container.innerHTML = "<em>No disposals yet</em>";
+    }
+  } catch (err) {
+    console.error("Failed to load audit log", err);
+  }
+}
+loadAuditLog();
+
+// -------------------------
+// Start QR Scanner
+// -------------------------
+async function startScanner() {
+  const html5QrCode = new Html5Qrcode("scanner");
+  const config = { fps: 10, qrbox: 250 };
+  html5QrCode.start(
+    { facingMode: "environment" },
+    config,
+    async (decodedText) => {
+      document.getElementById("serial").value = decodedText;
+      await fetchAssetDetails(decodedText);
+      html5QrCode.stop();
+    }
+  );
+}
+
+// -------------------------
+// Fetch Asset Details
+// -------------------------
+async function fetchAssetDetails(serial) {
+  try {
+    const res = await fetch(`${API_BASE}/${serial}`, { // <-- fixed endpoint
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const out = await res.json();
+    if (res.ok) {
+      document.getElementById("assetPreview").style.display = "block";
+      document.getElementById("pSerial").innerText = out.serial || "-";
+      document.getElementById("pType").innerText = out.type || "-";
+      document.getElementById("pStatus").innerText = out.status || "-";
+      document.getElementById("pLocation").innerText = out.location || "-";
+
+      // Smart Validations
+      const btn = document.querySelector(".dispose-btn");
+      if (out.status === "disposed") {
+        alert("⚠️ Asset already disposed!");
+        btn.disabled = true;
+      } else if (out.status === "seized") {
+        alert("⚠️ Asset under court custody, needs clearance.");
+      } else {
+        btn.disabled = false;
+      }
+    } else {
+      alert("❌ Asset not found.");
+    }
+  } catch (err) {
+    console.error("Fetch failed", err);
+  }
+}
+
+// -------------------------
+// Handle Disposal
+// -------------------------
+document.getElementById("disposeForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const serial = document.getElementById("serial").value.trim();
+  const reason = document.getElementById("reason").value;
+  const approvedBy = document.getElementById("approvedBy").value.trim();
+  const approvedBy2 = document.getElementById("approvedBy2").value.trim();
+  const remarks = document.getElementById("remarks").value.trim();
+  const approvalDoc = document.getElementById("approvalDoc").files[0];
+
+  if (!confirm(`⚠️ Confirm disposal of asset ${serial}?`)) return;
+
+  const formData = new FormData();
+  formData.append("serial", serial);
+  formData.append("reason", reason);
+  formData.append("approvedBy", approvedBy);
+  formData.append("approvedBy2", approvedBy2);
+  formData.append("remarks", remarks);
+  if (geoLocation) formData.append("location", JSON.stringify(geoLocation));
+  if (approvalDoc) formData.append("approvalDoc", approvalDoc);
+
+  const res = await fetch(`${API_BASE}/dispose`, { // <-- fixed endpoint
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData
+  });
+  const out = await res.json();
+  document.getElementById("msg").innerText = out.msg || out.error;
+
+  if (res.ok) {
+    lastDisposed = serial;
+    document.getElementById("undoBtn").style.display = "block";
+    loadAuditLog();
+    e.target.reset();
+  }
+});
+
+// -------------------------
+// Undo Disposal
+// -------------------------
+document.getElementById("undoBtn").addEventListener("click", async () => {
+  if (!lastDisposed) return;
+  const res = await fetch(`${API_BASE}/undo-dispose`, { // <-- fixed endpoint
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ serial: lastDisposed })
+  });
+  const out = await res.json();
+  document.getElementById("msg").innerText = out.msg || out.error;
+
+  if (res.ok) {
+    lastDisposed = null;
+    document.getElementById("undoBtn").style.display = "none";
+    loadAuditLog();
+  }
+});
+
+// -------------------------
+// Navigation
+// -------------------------
+function goBack() { location.href = "dashboard.html"; }
+function logout() { localStorage.removeItem("token"); location.href = "login.html"; }
+</script>
+</body>
+</html>

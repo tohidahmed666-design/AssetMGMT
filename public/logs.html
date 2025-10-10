@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Asset Logs</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* Container */
+.logs-container {
+  max-width: 1300px;
+  margin: 40px auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+}
+
+/* Responsive: stack on small screens */
+@media (max-width: 1100px) {
+  .logs-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Card layout for logs */
+.log-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  overflow-x: auto;
+}
+
+.log-card h3 {
+  margin-bottom: 15px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  min-width: 800px;
+  border-collapse: collapse;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+thead {
+  background: linear-gradient(to right, #6a11cb, #2575fc);
+  color: white;
+  text-align: left;
+}
+
+th, td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+tbody tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+tbody tr:hover {
+  background: #eef3ff;
+}
+
+td {
+  color: #444;
+}
+</style>
+</head>
+<body>
+<!-- Navbar -->
+<div class="navbar">
+  <h1>📦 Asset Management</h1>
+  <ul>
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="view_assets.html">View Assets</a></li>
+    <li><a href="add_asset.html">Add Asset</a></li>
+    <li><button onclick="logout()">Logout</button></li>
+  </ul>
+</div>
+
+<!-- Logs -->
+<div class="logs-container">
+  <div class="log-card">
+    <h3>📤 Issued Assets</h3>
+    <table id="issuedTable">
+      <thead>
+        <tr>
+          <th>Serial</th>
+          <th>Type</th>
+          <th>Brand</th>
+          <th>Model</th>
+          <th>Location</th>
+          <th>Quantity</th>
+          <th>Receiver</th>
+          <th>Issuer</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="log-card">
+    <h3>📥 Received Assets</h3>
+    <table id="receivedTable">
+      <thead>
+        <tr>
+          <th>Serial</th>
+          <th>Type</th>
+          <th>Brand</th>
+          <th>Model</th>
+          <th>Location</th>
+          <th>Quantity</th>
+          <th>Receiver</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API_BASE = "http://localhost:5000/api/assets";
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+
+// -------------------------
+// Helper to format date
+// -------------------------
+function formatDate(dateStr) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (isNaN(d)) return "-";
+  return d.toLocaleString();
+}
+
+// -------------------------
+// Safe field getter
+// -------------------------
+function getField(asset, key, fallback = "-") {
+  return asset[key] !== undefined && asset[key] !== null && asset[key] !== "" ? asset[key] : fallback;
+}
+
+// -------------------------
+// Load Logs
+// -------------------------
+async function loadLogs() {
+  try {
+    // --- Issued Assets ---
+    let res = await fetch(`${API_BASE}/issued`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    let issued = await res.json();
+    if (!Array.isArray(issued)) issued = [];
+    const issuedTbody = document.querySelector("#issuedTable tbody");
+    issuedTbody.innerHTML = "";
+    issued.forEach(log => {
+      const asset = log.assetDetails || {};
+      issuedTbody.innerHTML += `
+        <tr>
+          <td>${getField(asset, "asset_number")}</td>
+          <td>${getField(asset, "sub_category")}</td>
+          <td>${getField(asset, "brand")}</td>
+          <td>${getField(asset, "model")}</td>
+          <td>${getField(asset, "location")}</td>
+          <td>${getField(asset, "quantity", 1)}</td>
+          <td>${log.issued_to || "-"}</td>
+          <td>${log.issuer_name || "-"}</td>
+          <td>${formatDate(log.issued_at)}</td>
+        </tr>`;
+    });
+
+    // --- Received Assets ---
+    res = await fetch(`${API_BASE}/received`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    let received = await res.json();
+    if (!Array.isArray(received)) received = [];
+    const receivedTbody = document.querySelector("#receivedTable tbody");
+    receivedTbody.innerHTML = "";
+    received.forEach(log => {
+      const asset = log.assetDetails || {};
+      receivedTbody.innerHTML += `
+        <tr>
+          <td>${getField(asset, "asset_number")}</td>
+          <td>${getField(asset, "sub_category")}</td>
+          <td>${getField(asset, "brand")}</td>
+          <td>${getField(asset, "model")}</td>
+          <td>${getField(asset, "location")}</td>
+          <td>${getField(asset, "quantity", 1)}</td>
+          <td>${log.received_by || "-"}</td>
+          <td>${formatDate(log.received_at)}</td>
+        </tr>`;
+    });
+
+  } catch (err) {
+    console.error("Error loading logs:", err);
+    alert("⚠️ Failed to load logs. Check backend server.");
+  }
+}
+
+// -------------------------
+// Logout
+// -------------------------
+function logout() {
+  localStorage.removeItem("token");
+  location.href = "login.html";
+}
+
+// -------------------------
+// Init
+// -------------------------
+loadLogs();
+</script>
+</body>
+</html>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Add Asset</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* --- Form Container --- */
+.form-container {
+  max-width: 800px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+}
+.form-container h2 { text-align: center; margin-bottom: 20px; }
+.form-container select, 
+.form-container input, 
+.form-container button {
+  width: 100%;
+  margin: 10px 0;
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+.form-container button {
+  background: linear-gradient(to right, #6a11cb, #2575fc);
+  border: none;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+.form-container button:hover { opacity: 0.9; }
+
+#dynamicFields { 
+  margin-top: 20px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 12px;
+}
+#msg { text-align: center; margin-top: 10px; font-weight: bold; color: red; }
+#barcodeContainer { text-align: center; margin-top: 20px; }
+#printBtn, #downloadBtn, #cancelBtn { display: none; margin-top: 5px; }
+#previewContainer { margin-top: 15px; text-align: center; }
+video, canvas, img { max-width: 100%; margin-top: 10px; }
+.back-button { position: fixed; top: 100px; left: 30px; text-align: center; cursor: pointer; }
+.back-button img { width: 40px; height: 40px; display: block; margin: 0 auto; }
+.back-button span { display: block; margin-top: 5px; font-size: 13px; color: white; }
+
+/* --- Print Fix --- */
+@media print {
+  body * { visibility: hidden; }
+  #barcodeContainer, #barcodeContainer * { visibility: visible; }
+  #barcodeContainer {
+    position: absolute;
+    top: 2cm;
+    left: 0;
+    width: 100%;
+    text-align: center;
+  }
+  #barcode { width: 90% !important; height: auto !important; }
+  #barcodeText { font-size: 16px !important; display:block !important; margin-top:10px; }
+}
+</style>
+</head>
+<body>
+
+<div class="navbar">
+<h1>📦 Asset Management</h1>
+<ul>
+<li><a href="dashboard.html">Dashboard</a></li>
+<li><a href="view_assets.html">View Assets</a></li>
+<li><a href="logs.html">Logs</a></li>
+<li><button onclick="logout()">Logout</button></li>
+</ul>
+</div>
+
+<div class="back-button" onclick="goBack()">
+<img src="backWhite.png" alt="Back">
+<span>Back to Dashboard</span>
+</div>
+
+<div class="form-container">
+<h2>➕ Add Asset</h2>
+<form id="addForm" enctype="multipart/form-data">
+  <select id="category" name="category" required>
+    <option value="">-- Select Asset Category --</option>
+    <option value="IT">IT & Electronics</option>
+    <option value="Vehicles">Vehicles</option>
+    <option value="Uniforms">Uniforms & Gear</option>
+    <option value="OfficeEquipment">Office Equipment</option>
+    <option value="SpecializedTools">Specialized Tools</option>
+    <option value="Buildings">Buildings / Infrastructure</option>
+    <option value="Evidence">Evidence Items</option>
+    <option value="Furniture">Furniture</option>
+  </select>
+
+  <div id="subCategoryContainer" style="display:none; margin-top:10px;">
+    <select id="subCategory" name="subCategory">
+      <option value="">-- Select Subcategory --</option>
+    </select>
+  </div>
+
+  <div id="dynamicFields"></div>
+
+  <!-- File Upload & Camera -->
+  <input type="file" id="assetImage" name="assetImage" accept="image/*">
+  <div id="previewContainer">
+    <button type="button" id="startCamera">📷 Start Camera</button>
+    <button type="button" id="captureImage">📸 Capture Image</button>
+    <button type="button" id="stopCamera">🛑 Stop Camera</button>
+    <video id="video" autoplay style="display:none;"></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <img id="capturedImage" alt="Captured Image" style="display:none;"/>
+  </div>
+
+  <button type="submit">Add Asset</button>
+  <button type="button" id="printBtn">🖨️ Print Barcode</button>
+  <button type="button" id="downloadBtn">⬇️ Download Barcode</button>
+  <button type="button" id="cancelBtn">❌ Cancel</button>
+  <p id="msg"></p>
+</form>
+
+<div id="barcodeContainer">
+  <svg id="barcode"></svg>
+  <span id="barcodeText"></span>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script>
+const API_BASE = "http://localhost:5000/api/assets";
+const token = localStorage.getItem("token");
+
+// --- Authentication Check ---
+if (!token) {
+  alert("No login token found, please login again.");
+  window.location.href = "login.html";
+}
+
+// --- Variables ---
+let currentBarcode = "";
+let stream = null;
+let capturedImageBase64 = null;
+
+// --- Category / SubCategory Configuration ---
+const subCategories = {
+  IT: ["Desktop","Laptop","Mobile","Body Camera","Drone","Network","Printer"],
+  Vehicles: ["Patrol Car","Motorcycle","Van"],
+  Uniforms: ["Body Armor","Helmet","Radio","Boots","Badge"],
+  OfficeEquipment: ["Printer","Copier","Desk","Chair"],
+  SpecializedTools: ["Breathalyzer","Forensic Kit","Fingerprint Kit","Evidence Locker"],
+  Buildings: ["Station","Armory","Evidence Storage Facility"],
+  Evidence: ["Seized Property","Controlled Evidence"],
+  Furniture: ["Desks & Tables","Chairs & Seating","Storage Cabinets","Shelving / Racks"]
+};
+
+// --- Field Sets ---
+const defaultFields = [
+  "ASSET_SLNO","LOCATION","ASSET_TYPE","BRAND_NAME","MODEL_NO",
+  "WARRANTY","Supplied By","PROPERTY REGISTER SL NO","PR PAGE NO",
+  "PR DATE","INSTALL DATE","Remarks"
+];
+
+const fieldSets = {
+  IT:{
+    Desktop:[
+      "ASSET_SLNO","LOCATION","ASSET_TYPE","BRAND_NAME","MODEL_NO","Hostname","IP Address",
+      "WARRANTY","INSTALL_DATE","Year","PROCESSOR_TYPE","PROCESSOR_SPEED",
+      "RAM_TYPE","RAM_SIZE","RAM_QTY","HDD_TYPE","HDD_SIZE","HDD_QTY",
+      "MBOARD_BRAND","MBOARD_CHIPSET","MONITOR_TYPE","MONITOR_SIZE","MONITOR_MAKE",
+      "MONITOR_MODEL","MONITOR_SERIAL_NO","SMPS_TYPE","KEYBOARD_TYPE","MOUSE_TYPE",
+      "OPTICAL_DEVICES","BKUP_DEVICE","OS_NAME","Supplied By","PROPERTY REGISTER SL NO",
+      "PR PAGE NO","PR DATE","Date"
+    ],
+    Network:[
+      "ASSET_SLNO","LOCATION","ASSET_TYPE","BRAND_NAME","ITEM SL NO","MODEL_NO","No. of Ports",
+      "WARRANTY","INSTALL_DATE","Supplied By","PROPERTY REGISTER SL NO","PR PAGE NO","PR DATE"
+    ],
+    Printer:[
+      "ASSET_SLNO","LOCATION","ASSET_TYPE","BRAND_NAME","Sl No","MODEL_NO","WARRANTY","INSTALL_DATE",
+      "Supplied By","PROPERTY REGISTER SL NO","PR PAGE NO","Remarks"
+    ],
+    Laptop: defaultFields,
+    Mobile: defaultFields,
+    "Body Camera": defaultFields,
+    Drone: defaultFields
+  },
+  Vehicles:{ "Patrol Car": defaultFields, "Motorcycle": defaultFields, "Van": defaultFields },
+  Uniforms:{ "Body Armor": defaultFields, "Helmet": defaultFields, "Radio": defaultFields, "Boots": defaultFields, "Badge": defaultFields },
+  OfficeEquipment:{ Printer: defaultFields, Copier: defaultFields, Desk: defaultFields, Chair: defaultFields },
+  SpecializedTools:{ Breathalyzer: defaultFields, "Forensic Kit": defaultFields, "Fingerprint Kit": defaultFields, "Evidence Locker": defaultFields },
+  Buildings:{ Station: defaultFields, Armory: defaultFields, "Evidence Storage Facility": defaultFields },
+  Evidence:{ "Seized Property": defaultFields, "Controlled Evidence": defaultFields },
+  Furniture:{ "Desks & Tables": defaultFields, "Chairs & Seating": defaultFields, "Storage Cabinets": defaultFields, "Shelving / Racks": defaultFields }
+};
+
+// --- Asset Counter ---
+let assetCounter = Number(localStorage.getItem("assetCounter") || 1000);
+function getNewAssetNumber(){
+  const el = document.getElementsByName("asset_slno")[0];
+  if(!el) return;
+  el.value = "ASSET-" + assetCounter++;
+  localStorage.setItem("assetCounter", assetCounter);
+  generateBarcode();
+}
+
+// --- Render Fields ---
+function renderFields(fields){
+  const container = document.getElementById("dynamicFields");
+  container.innerHTML = "";
+  fields.forEach(f => {
+    const input = document.createElement("input");
+    input.type = f.toLowerCase().includes("date") ? "date" : "text";
+    input.placeholder = f;
+    input.name = f.replace(/\s+|\./g,"_").toLowerCase();
+    input.addEventListener("input", generateBarcode);
+    container.appendChild(input);
+  });
+  getNewAssetNumber();
+}
+
+// --- Barcode ---
+function generateBarcode(){
+  const assetNumber = document.getElementsByName("asset_slno")[0]?.value.trim();
+  const brand = document.getElementsByName("brand_name")?.[0]?.value?.trim() || "";
+  const model = document.getElementsByName("model_no")?.[0]?.value?.trim() || "";
+
+  if(assetNumber){
+    currentBarcode = assetNumber;
+    JsBarcode("#barcode", currentBarcode, {
+      format:"CODE128", width:1.8, height:100,
+      displayValue:true, fontSize:18, margin:10
+    });
+    document.getElementById("barcodeText").textContent = [brand, model].filter(Boolean).join(" - ");
+    ["printBtn","downloadBtn","cancelBtn"].forEach(id=>document.getElementById(id).style.display="block");
+  } else {
+    currentBarcode = "";
+    document.getElementById("barcode").innerHTML = "";
+    document.getElementById("barcodeText").textContent = "";
+    ["printBtn","downloadBtn","cancelBtn"].forEach(id=>document.getElementById(id).style.display="none");
+  }
+}
+
+// --- Camera ---
+document.getElementById("startCamera").addEventListener("click", async ()=>{
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video:true });
+    const video = document.getElementById("video");
+    video.srcObject = stream; video.style.display = "block";
+  } catch(err){
+    console.error("Camera error:", err);
+    alert("Failed to start camera: " + err.message);
+  }
+});
+
+document.getElementById("captureImage").addEventListener("click", ()=>{
+  const video = document.getElementById("video");
+  const canvas = document.getElementById("canvas");
+  const img = document.getElementById("capturedImage");
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video,0,0);
+  capturedImageBase64 = canvas.toDataURL("image/png");
+  img.src = capturedImageBase64; img.style.display = "block";
+});
+
+document.getElementById("stopCamera").addEventListener("click", ()=>{
+  if(stream){ stream.getTracks().forEach(track=>track.stop()); }
+  document.getElementById("video").style.display = "none";
+});
+
+// --- Date Helper ---
+function formatDateForSQL(value){
+  if(!value || value === "" || value === "-") return null;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d.toISOString(); // safe ISO string for SQL Server
+}
+
+// --- Submit Form ---
+document.getElementById("addForm").addEventListener("submit", async (e)=>{
+  e.preventDefault();
+  const assetNumber = document.getElementsByName("asset_slno")[0]?.value.trim();
+  const category = document.getElementById("category").value.trim();
+  const msgEl = document.getElementById("msg");
+
+  if(!assetNumber || !category){
+    msgEl.textContent = "❌ Asset Number and Category are required";
+    msgEl.style.color = "red"; return;
+  }
+
+  const inputs = document.querySelectorAll("#dynamicFields input");
+  const payload = {
+    asset_number: assetNumber,
+    category: category,
+    sub_category: document.getElementById("subCategory").value || null,
+    status: "active",
+    quantity: 1
+  };
+
+  // --- Map UI field names to DB fields ---
+  const fieldMap = {
+    asset_slno: "asset_number",
+    brand_name: "brand",
+    model_no: "model",
+    supplied_by: "supplier",
+    pr_date: "pr_date",
+    install_date: "install_date",
+    year_of_purchase: "year_of_purchase",
+    remarks: "remarks",
+    property_register_sl_no: "property_register_sl_no",
+    pr_page_no: "pr_page_no",
+    location: "location",
+    asset_type: "type",
+    warranty: "warranty",
+    sl_no: "serial_number"
+  };
+
+  // --- Process fields safely ---
+  inputs.forEach(i=>{
+    let value = i.value.trim();
+    if(["year","purchase_price","depreciation","quantity"].includes(i.name)) value = value ? parseFloat(value) : null;
+    if(i.name === "assigned_officer") value = value ? parseInt(value) : null;
+    if(i.name.toLowerCase().includes("date") || i.name === "year_of_purchase") value = formatDateForSQL(value);
+    if(value === "" || value === "-") value = null;
+    payload[fieldMap[i.name] || i.name] = value;
+  });
+
+  // --- Add captured image ---
+  if(capturedImageBase64) payload.image_url = capturedImageBase64;
+
+  try{
+    // --- Check duplicate asset ---
+    const checkRes = await fetch(`${API_BASE}/check/${encodeURIComponent(assetNumber)}`, {
+      method:"GET", headers:{ Authorization:`Bearer ${token}` }
+    });
+    const checkData = await checkRes.json();
+    if(checkData.exists){
+      msgEl.textContent = "❌ Asset Number already exists!";
+      msgEl.style.color = "red"; return;
+    }
+
+    // --- Submit Asset ---
+    const res = await fetch(API_BASE,{
+      method:"POST",
+      headers:{ "Authorization": `Bearer ${token}`, "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+    msgEl.textContent = data.msg || (res.ok ? "✅ Asset added successfully!" : "❌ Failed to add asset");
+    msgEl.style.color = res.ok ? "green" : "red";
+    if(res.ok) setTimeout(()=>window.location.href="view_assets.html",1200);
+
+  } catch(err){
+    console.error("Error adding asset:", err);
+    msgEl.textContent = "❌ Error adding asset: " + err.message;
+    msgEl.style.color = "red";
+  }
+});
+
+// --- Barcode Cancel/Print/Download ---
+document.getElementById("cancelBtn").addEventListener("click", ()=>{
+  document.getElementsByName("asset_slno")[0].value = "";
+  generateBarcode();
+});
+document.getElementById("printBtn").addEventListener("click", ()=>window.print());
+document.getElementById("downloadBtn").addEventListener("click", ()=>{
+  const svg = document.getElementById("barcode");
+  const xml = new XMLSerializer().serializeToString(svg);
+  const svg64 = btoa(xml);
+  const a = document.createElement("a");
+  a.href = "data:image/svg+xml;base64," + svg64;
+  a.download = "barcode.svg";
+  a.click();
+});
+
+// --- Category/Subcategory ---
+document.getElementById("category").addEventListener("change", function(){
+  const cat = this.value;
+  const subSelect = document.getElementById("subCategory");
+  const subContainer = document.getElementById("subCategoryContainer");
+  subSelect.innerHTML = "<option value=''>-- Select Subcategory --</option>";
+  if(subCategories[cat]){
+    subCategories[cat].forEach(sub=>{ 
+      const opt = document.createElement("option"); 
+      opt.value = sub; opt.textContent = sub; 
+      subSelect.appendChild(opt); 
+    });
+    subContainer.style.display="block";
+  } else subContainer.style.display="none";
+  renderFields([]);
+});
+
+document.getElementById("subCategory").addEventListener("change", function(){
+  const cat = document.getElementById("category").value;
+  const sub = this.value;
+  renderFields(fieldSets[cat]?.[sub] || defaultFields);
+});
+
+// --- Helpers ---
+function logout(){ localStorage.removeItem("token"); location.href="login.html"; }
+function goBack(){ window.location.href="dashboard.html"; }
+</script>
+</body>
+</html>

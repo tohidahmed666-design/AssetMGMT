@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Asset Report</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* --- Container & Card --- */
+.container {
+  max-width: 1300px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+.report-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  overflow-x: auto;
+}
+
+/* --- Headings --- */
+.container h1 {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+/* --- Filters --- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  color: #444;
+}
+
+.filters input, .filters select {
+  padding: 6px 8px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.filters button {
+  padding: 8px 14px;
+  background: #2575fc;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.filters button:hover {
+  background: #1a5ed8;
+}
+
+/* --- Export button --- */
+.export-btn {
+  margin-bottom: 15px;
+  padding: 8px 14px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.export-btn:hover {
+  background: #218838;
+}
+
+/* --- Table --- */
+table {
+  width: 100%;
+  min-width: 1000px;
+  border-collapse: collapse;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 14px;
+}
+
+thead {
+  background: linear-gradient(to right, #6a11cb, #2575fc);
+  color: white;
+  text-align: left;
+}
+
+th, td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+
+tbody tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+tbody tr:hover {
+  background: #eef3ff;
+}
+
+td {
+  color: #444;
+}
+
+/* --- Responsive --- */
+@media (max-width: 1100px) {
+  .filters {
+    flex-direction: column;
+  }
+  table {
+    min-width: 100%;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<div class="navbar">
+  <h1>📦 Asset Management</h1>
+  <ul>
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="view_assets.html">View Assets</a></li>
+    <li><a href="add_asset.html">Add Asset</a></li>
+    <li><button onclick="logout()">Logout</button></li>
+  </ul>
+</div>
+
+<!-- Report Card -->
+<div class="container report-card">
+  <h1>📊 Asset Report</h1>
+
+  <!-- Filters -->
+  <div class="filters">
+    <label>Status:
+      <select id="statusFilter">
+        <option value="">All</option>
+        <option value="available">Available</option>
+        <option value="issued">Issued</option>
+        <option value="deleted">Deleted</option>
+      </select>
+    </label>
+    <label>Type: <input type="text" id="typeFilter" placeholder="Type"></label>
+    <label>Brand: <input type="text" id="brandFilter" placeholder="Brand"></label>
+    <label>Model: <input type="text" id="modelFilter" placeholder="Model"></label>
+    <label>From: <input type="date" id="startDate"></label>
+    <label>To: <input type="date" id="endDate"></label>
+    <button onclick="loadReport()">Apply Filters</button>
+  </div>
+
+  <button class="export-btn" onclick="exportExcel()">📥 Export to Excel</button>
+
+  <!-- Report Table -->
+  <table id="reportTable">
+    <thead>
+      <tr>
+        <th>Asset Number</th>
+        <th>Type</th>
+        <th>Brand</th>
+        <th>Model</th>
+        <th>Location</th>
+        <th>Status</th>
+        <th>Issued To</th>
+        <th>Issuer</th>
+        <th>Issue Date</th>
+        <th>Quantity</th>
+        <th>Created At</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+const API_BASE = "http://localhost:5000/api/assets";
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+
+// -------------------------
+// Helper: format date
+// -------------------------
+function formatDate(dateStr) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (isNaN(d)) return "-";
+  return d.toLocaleString();
+}
+
+// -------------------------
+// Load report data
+// -------------------------
+async function loadReport() {
+  try {
+    const res = await fetch(API_BASE, { headers: { Authorization: `Bearer ${token}` } });
+    let data = await res.json();
+    if (!Array.isArray(data)) data = [];
+
+    // Apply filters
+    const statusFilter = document.getElementById("statusFilter").value.toLowerCase();
+    const typeFilter = document.getElementById("typeFilter").value.toLowerCase();
+    const brandFilter = document.getElementById("brandFilter").value.toLowerCase();
+    const modelFilter = document.getElementById("modelFilter").value.toLowerCase();
+    const startDate = document.getElementById("startDate").value;
+    const endDate = document.getElementById("endDate").value;
+
+    const filtered = data.filter(a => {
+      const created = new Date(a.createdAt);
+      return (
+        (!statusFilter || a.status?.toLowerCase() === statusFilter) &&
+        (!typeFilter || (a.sub_category || "").toLowerCase().includes(typeFilter)) &&
+        (!brandFilter || (a.brand || "").toLowerCase().includes(brandFilter)) &&
+        (!modelFilter || (a.model || "").toLowerCase().includes(modelFilter)) &&
+        (!startDate || created >= new Date(startDate)) &&
+        (!endDate || created <= new Date(endDate))
+      );
+    });
+
+    // Render table
+    const tbody = document.querySelector("#reportTable tbody");
+    tbody.innerHTML = "";
+    filtered.forEach(a => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${a.asset_number || "-"}</td>
+          <td>${a.sub_category || "-"}</td>
+          <td>${a.brand || "-"}</td>
+          <td>${a.model || "-"}</td>
+          <td>${a.location || "-"}</td>
+          <td>${a.status || "-"}</td>
+          <td>${a.issued_to || "-"}</td>
+          <td>${a.issuer_name || "-"}</td>
+          <td>${formatDate(a.issued_at)}</td>
+          <td>${a.quantity ?? 1}</td>
+          <td>${formatDate(a.createdAt)}</td>
+        </tr>`;
+    });
+
+  } catch (err) {
+    console.error("Error loading report:", err);
+    alert("⚠️ Failed to load report. Check backend server.");
+  }
+}
+
+// -------------------------
+// Export table to Excel
+// -------------------------
+function exportExcel() {
+  const table = document.getElementById("reportTable");
+  let csv = [];
+  for (let row of table.rows) {
+    const cols = Array.from(row.cells).map(td => `"${td.innerText}"`);
+    csv.push(cols.join(","));
+  }
+  const blob = new Blob([csv.join("\n")], { type: "text/csv" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "asset_report.csv";
+  link.click();
+}
+
+// -------------------------
+// Logout
+// -------------------------
+function logout() {
+  localStorage.removeItem("token");
+  location.href = "login.html";
+}
+
+// -------------------------
+// Init
+// -------------------------
+loadReport();
+</script>
+</body>
+</html>

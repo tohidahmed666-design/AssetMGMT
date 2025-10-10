@@ -1,0 +1,210 @@
+/* 🌟 General Layout */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #74ebd5 0%, #ACB6E5 100%);
+  margin: 0;
+  padding-top: 70px; /* space for navbar */
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* 🌟 Navbar */
+.navbar {
+  width: 100%;
+  padding: 14px 30px;
+  background: linear-gradient(90deg,#667eea,#764ba2);
+  color: #fff;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  box-sizing: border-box;
+}
+
+.navbar h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navbar ul {
+  list-style: none;
+  display: flex;
+  gap: 25px;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar ul li {
+  display: inline;
+}
+
+.navbar ul a, .navbar button {
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.3s ease, border-bottom 0.3s ease;
+  padding-bottom: 3px;
+}
+
+.navbar ul a:hover, .navbar button:hover {
+  border-bottom: 2px solid #fff;
+  color: #ffeaa7;
+}
+
+/* 🌟 Dashboard Container */
+.dashboard-container {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 1200px;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* 🌟 Dashboard Cards */
+.dashboard-card {
+  flex: 1;
+  min-width: 350px;
+  max-width: 500px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* 🌟 Buttons */
+button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: bold;
+  background: linear-gradient(90deg,#667eea,#764ba2);
+  color: white;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+button:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+/* 🌟 Table Styling */
+.table-container {
+  margin-top: 20px;
+  overflow-x: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background: #fff;
+  padding: 20px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+table th, table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eaeaea;
+  font-size: 14px;
+}
+
+table th {
+  background: linear-gradient(90deg,#667eea,#764ba2);
+  color: #fff;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+table tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+table tr:hover {
+  background: #f1f5ff;
+}
+
+/* 🌟 Action Buttons in Tables */
+.table-actions button {
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  margin-right: 6px;
+  background: linear-gradient(90deg,#667eea,#764ba2);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+.table-actions button:hover {
+  background: linear-gradient(90deg,#5a67d8,#6b46c1);
+  transform: translateY(-2px);
+}
+
+/* 🌟 Logs Page Layout */
+.logs-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 1200px;
+  padding: 20px;
+}
+
+.log-card {
+  flex: 1;
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  min-width: 400px;
+}
+
+.log-card h3 {
+  text-align: center;
+  margin-bottom: 15px;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* 🌟 Responsive */
+@media (max-width: 900px) {
+  .logs-container {
+    flex-direction: column;
+  }
+  .dashboard-container {
+    flex-direction: column;
+  }
+}
+
+/* Fade animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
