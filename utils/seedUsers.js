@@ -6,34 +6,7 @@ const { User, sequelize } = require("../models");
 // Default police stations / users
 // ------------------------------
 const stations = [
-  { name: "Gadag Town PS", email: "towngdg@ksp.gov.in" },
-  { name: "Gadag Traffic PS", email: "trafficgdg@ksp.gov.in" },
-  { name: "Betageri PS", email: "betageri@ksp.gov.in" },
-  { name: "Betageri Extention PS", email: "betageriext@ksp.gov.in" },
-  { name: "Gadag Rural PS", email: "gadagrural@ksp.gov.in" },
-  { name: "Gadag Women PS", email: "gadagwomen@ksp.gov.in" },
-  { name: "Gadag CEN PS", email: "gadagcen@ksp.gov.in" },
-  { name: "Mulagund PS", email: "mulagund@ksp.gov.in" },
-  { name: "Ron PS", email: "ron@ksp.gov.in" },
-  { name: "Naregal PS", email: "naregal@ksp.gov.in" },
-  { name: "Gajendragad PS", email: "gajendragad@ksp.gov.in" },
-  { name: "Shirahatti PS", email: "shirahatti@ksp.gov.in" },
-  { name: "Lakshmeshwar PS", email: "lakshmeshwar@ksp.gov.in" },
-  { name: "Nargund PS", email: "nargund@ksp.gov.in" },
-  { name: "Mundargi PS", email: "mundargi@ksp.gov.in" },
-  { name: "Gadag Sub-Division", email: "gadagsubdiv@ksp.gov.in" },
-  { name: "NARAGUND SDPO", email: "naragundsdpo@ksp.gov.in" },
-  { name: "Betageri Circle", email: "betagericircle@ksp.gov.in" },
-  { name: "Ron Circle", email: "roncircle@ksp.gov.in" },
-  { name: "Shirahatti Circle", email: "shirahatticircle@ksp.gov.in" },
-  { name: "GADAG DAR", email: "gadagdar@ksp.gov.in" },
-  { name: "Gadag Control Room", email: "controlroom@ksp.gov.in" },
-  { name: "Computer Section DPO Gadag", email: "compsection@ksp.gov.in" },
-  { name: "CDR Section, DPO, Gadag", email: "cdrsection@ksp.gov.in" },
-  { name: "SOCO Officers", email: "soco@ksp.gov.in" },
-  { name: "SMMC DPO Gadag", email: "smmc@ksp.gov.in" },
-  { name: "Passport DPO Gadag", email: "passport@ksp.gov.in" },
-  { name: "SS ACT DPO Gadag", email: "ssact@ksp.gov.in" },
+  
 ];
 
 // ------------------------------
