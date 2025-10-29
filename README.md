@@ -1,4 +1,5 @@
 # 🏢 Asset Management System (KSP - AssetMGMT)
+# By: TOHID AHMED BALLARI
 
 A complete **Asset Management Web Application** built using **Node.js**, **Express.js**, and **Microsoft SQL Server** with secure **JWT authentication**, **email OTP verification**, and a clean HTML/JS frontend.  
 Designed for police department asset tracking — includes modules for issuing, receiving, disposing, and auditing all assets.
@@ -60,3 +61,4 @@ Designed for police department asset tracking — includes modules for issuing, 
 ```bash
 git clone 
 cd AssetMGMT
+
