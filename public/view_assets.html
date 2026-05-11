@@ -1,0 +1,423 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>View Assets</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* Search bar */
+.search-bar { display:flex; gap:10px; justify-content:center; margin:20px 0; }
+.search-bar input { flex:1; padding:8px; border-radius:6px; border:1px solid #ccc; }
+.search-bar button { padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; }
+.search-bar button:hover { opacity:0.9; }
+
+/* Table actions */
+.table-actions button { margin:2px; padding:4px 8px; border:none; border-radius:4px; cursor:pointer; }
+.btn-issue{background:#4CAF50;color:#fff;} 
+.btn-issue:disabled{opacity:0.5; cursor:not-allowed;}
+.btn-receive{background:#2196F3;color:#fff;}
+.btn-delete{background:#f44336;color:#fff;} 
+.btn-recover{background:#FF9800;color:#fff;}
+.btn-print{background:#00b09b;color:#fff; margin-top:10px;}
+
+/* Popup card */
+.popup-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:none; z-index:1000; }
+.asset-popup { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.3);
+  max-width:600px; width:90%; z-index:1001; display:none; overflow-y:auto; max-height:90vh; }
+.popup-close { position:absolute; top:10px; right:10px; cursor:pointer; border:none; background:none; font-size:18px; font-weight:bold; }
+.asset-link { color:#2196F3; cursor:pointer; text-decoration:underline; }
+.asset-link:hover { color:#0b7dda; }
+
+#paginationContainer button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0 3px;
+  font-size: 16px;
+  text-align: center;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#paginationContainer button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <h1>ðŸ“¦ Asset Management</h1>
+  <ul>
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="add_asset.html">Add Asset</a></li>
+    <li><a href="logs.html">Logs</a></li>
+    <li><button onclick="logout()">Logout</button></li>
+  </ul>
+</div>
+
+<div class="container" style="max-width:1200px; width:95%;">
+  <h2>ðŸ” View Assets</h2>
+
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Search by Asset Number, Brand, Model, or Location">
+    <button onclick="searchAsset()">Search</button>
+    <button onclick="clearSearch()">Clear</button>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; justify-content:center;">
+    <select id="filterCategory">
+      <option value="">All Categories</option>
+    </select>
+
+    <select id="filterType"><option value="">All Types</option></select>
+    <select id="filterBrand"><option value="">All Brands</option></select>
+    <select id="filterLocation"><option value="">All Locations</option></select>
+    <select id="filterYear"><option value="">All Years</option></select>
+    <select id="sortBy" class="filter-dropdown"></select>
+    <select id="filterStatus">
+      <option value="">All Status</option>
+      <option value="available">Available</option>
+      <option value="issued">Issued</option>
+      <option value="disposed">Disposed</option>
+    </select>
+  </div>
+
+  <div class="table-container">
+    <table id="assetTable">
+      <thead>
+        <tr>
+          <th>Asset Number</th><th>Type</th><th>Brand</th><th>Model</th>
+          <th>Location</th><th>Install Date</th><th>Quantity</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Popup -->
+<div class="popup-overlay" id="popupOverlay" onclick="closePopup()"></div>
+<div class="asset-popup" id="assetPopup">
+  <button class="popup-close" onclick="closePopup()">âœ–</button>
+  <h3>Asset Details</h3>
+  <div id="popupContent"></div>
+  <svg id="barcodePopup"></svg>
+  <button id="printBtn" class="btn-print" style="display:none;" onclick="printBarcode()">ðŸ–¨ï¸ Print Barcode</button>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const API_BASE = "/api/assets";
+  const token = localStorage.getItem("token");
+  if (!token) location.href = "login.html";
+
+  let allAssets = [];
+  let currentBarcode = "";
+  let currentPage = 1;
+  const perPage = 8;
+
+  const categoryMap = {
+    IT: ["Desktop","Laptop","Mobile","Body Camera","Drone","Network","Printer"],
+    Vehicles: ["Patrol Car","Motorcycle","Van"],
+    Uniforms: ["Body Armor","Helmet","Radio","Boots","Badge"],
+    OfficeEquipment: ["Printer","Copier","Desk","Chair"],
+    SpecializedTools: ["Breathalyzer","Forensic Kit","Fingerprint Kit","Evidence Locker"],
+    Buildings: ["Station","Armory","Evidence Storage Facility"],
+    Evidence: ["Seized Property","Controlled Evidence"],
+    Furniture: ["Desks & Tables","Chairs & Seating","Storage Cabinets","Shelving / Racks"]
+  };
+
+  function formatDate(dateStr) {
+    if (!dateStr || dateStr === "-") return "-";
+    const d = new Date(dateStr);
+    if (isNaN(d)) return "-";
+    return d.toLocaleDateString("en-GB", { day:"2-digit", month:"long", year:"numeric" });
+  }
+
+  function safeString(value, fallback="-") {
+    if (value === undefined || value === null) return fallback;
+    return String(value).trim();
+  }
+
+  function getAssetValue(asset, key, fallback=null, defaultVal="-") {
+    const fields = asset.fields || {};
+    const val = fields[key] ?? (fallback ? asset[fallback] : undefined);
+    return safeString(val, defaultVal);
+  }
+
+  async function loadAssets() {
+    try {
+      const res = await fetch(API_BASE, { headers:{ Authorization:`Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed to fetch assets");
+      allAssets = await res.json();
+      await markIssuedAssets();
+      await markReceivedAssets();
+      loadFilters();
+      loadCategoryFilters();
+      loadSortOptions();
+      renderAssets();
+    } catch(err) { console.error(err); alert("âš ï¸ Failed to load assets."); }
+  }
+
+  async function markIssuedAssets() {
+    try {
+      const res = await fetch(`${API_BASE}/issued`, { headers:{ Authorization:`Bearer ${token}` } });
+      if (!res.ok) return;
+      const issuedAssets = await res.json();
+      const issuedMap = {};
+      issuedAssets.forEach(a => { if(a.asset_number) issuedMap[a.asset_number] = true; });
+      allAssets.forEach(a => { if (issuedMap[a.asset_number]) a.status = "issued"; });
+    } catch(err){ console.error("Error fetching issued assets:", err); }
+  }
+
+  async function markReceivedAssets() {
+    try {
+      const res = await fetch(`${API_BASE}/received`, { headers:{ Authorization:`Bearer ${token}` } });
+      if (!res.ok) return;
+      const receivedAssets = await res.json();
+      const receivedMap = {};
+      receivedAssets.forEach(a => { if(a.asset_number) receivedMap[a.asset_number] = true; });
+      allAssets.forEach(a => { if(receivedMap[a.asset_number] && a.status==="issued") a.status="available"; });
+    } catch(err){ console.error("Error fetching received assets:", err); }
+  }
+
+  function loadFilters() {
+    const brands=[...new Set(allAssets.map(a=>getAssetValue(a,"BRAND_NAME","brand")).filter(Boolean))];
+    const locations=[...new Set(allAssets.map(a=>getAssetValue(a,"LOCATION","location")).filter(Boolean))];
+    const years=[...new Set(allAssets.map(a=>getAssetValue(a,"INSTALL_DATE","install_date")).filter(Boolean))];
+
+    const brandSelect=document.getElementById("filterBrand");
+    const locationSelect=document.getElementById("filterLocation");
+    const yearSelect=document.getElementById("filterYear");
+    if(brandSelect) brandSelect.innerHTML=`<option value="">All Brands</option>`+brands.map(b=>`<option>${b}</option>`).join("");
+    if(locationSelect) locationSelect.innerHTML=`<option value="">All Locations</option>`+locations.map(l=>`<option>${l}</option>`).join("");
+    if(yearSelect) yearSelect.innerHTML=`<option value="">All Install Dates</option>`+years.map(y=>`<option value="${y}">${formatDate(y)}</option>`).join("");
+  }
+
+  function loadCategoryFilters() {
+    const catSelect=document.getElementById("filterCategory");
+    if(!catSelect) return;
+    catSelect.innerHTML=`<option value="">All Categories</option>`+Object.keys(categoryMap).map(c=>`<option>${c}</option>`).join("");
+    catSelect.addEventListener("change",()=>{
+      const cat=catSelect.value;
+      const types=cat?categoryMap[cat]:[];
+      const typeSelect=document.getElementById("filterType");
+      if(typeSelect) typeSelect.innerHTML=`<option value="">All Types</option>`+types.map(t=>`<option>${t}</option>`).join("");
+      currentPage=1;
+      renderAssets();
+    });
+  }
+
+  function loadSortOptions() {
+    const sortSelect=document.getElementById("sortBy");
+    if(!sortSelect) return;
+    sortSelect.innerHTML=`
+      <option value="">Sort By</option>
+      <option value="newest">Recently Added</option>
+      <option value="oldest">Oldest First</option>
+      <option value="brand">Brand (Aâ€“Z)</option>
+      <option value="location">Location (Aâ€“Z)</option>
+      <option value="status">Status</option>`;
+    sortSelect.addEventListener("change",()=>{currentPage=1;renderAssets();});
+  }
+
+  function sortAssets(list){
+    const sortBy=document.getElementById("sortBy")?.value||"";
+    if(!sortBy) return list;
+    return list.sort((a,b)=>{
+      if(sortBy==="newest") return new Date(b.createdAt)-new Date(a.createdAt);
+      if(sortBy==="oldest") return new Date(a.createdAt)-new Date(b.createdAt);
+      if(sortBy==="brand") return getAssetValue(a,"BRAND_NAME","brand").localeCompare(getAssetValue(b,"BRAND_NAME","brand"));
+      if(sortBy==="location") return getAssetValue(a,"LOCATION","location").localeCompare(getAssetValue(b,"LOCATION","location"));
+      if(sortBy==="status") return (a.status||"").localeCompare(b.status||"");
+      return 0;
+    });
+  }
+
+  function renderAssets(){
+    const tbody=document.querySelector("#assetTable tbody");
+    if(!tbody) return;
+    tbody.innerHTML="";
+    const search=(document.getElementById("searchInput")?.value||"").toLowerCase();
+    const catFilter=document.getElementById("filterCategory")?.value||"";
+    const typeFilter=document.getElementById("filterType")?.value||"";
+    const brandFilter=(document.getElementById("filterBrand")?.value||"").toLowerCase();
+    const locationFilter=(document.getElementById("filterLocation")?.value||"").toLowerCase();
+    const yearFilter=document.getElementById("filterYear")?.value||"";
+    const statusFilter=document.getElementById("filterStatus")?.value||"";
+
+    let filtered=allAssets.filter(a=>{
+      const brand=safeString(getAssetValue(a,"BRAND_NAME","brand")).toLowerCase();
+      const model=safeString(getAssetValue(a,"MODEL_NO","model")).toLowerCase();
+      const location=safeString(getAssetValue(a,"LOCATION","location")).toLowerCase();
+      const installDate=getAssetValue(a,"INSTALL_DATE","install_date");
+      return (
+        (!search||(safeString(a.asset_number).toLowerCase().includes(search)||brand.includes(search)||model.includes(search)||location.includes(search))) &&
+        (!catFilter||a.category===catFilter) &&
+        (!typeFilter||a.sub_category===typeFilter) &&
+        (!brandFilter||brand===brandFilter) &&
+        (!locationFilter||location===locationFilter) &&
+        (!yearFilter||installDate==yearFilter) &&
+        (!statusFilter||a.status===statusFilter)
+      );
+    });
+
+    filtered=sortAssets(filtered);
+    const total=filtered.length;
+    const totalPages=Math.ceil(total/perPage);
+    if(currentPage>totalPages) currentPage=totalPages||1;
+    const start=(currentPage-1)*perPage;
+    const end=start+perPage;
+    const pageAssets=filtered.slice(start,end);
+    if(!pageAssets.length){
+      tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;">âŒ No matching assets</td></tr>`;
+      updatePagination(totalPages);
+      return;
+    }
+
+    pageAssets.forEach(a=>{
+      const qty=getAssetValue(a,"QUANTITY","quantity",a.quantity||1);
+      const brand=getAssetValue(a,"BRAND_NAME","brand");
+      const model=getAssetValue(a,"MODEL_NO","model");
+      const location=getAssetValue(a,"LOCATION","location");
+      const installDate=formatDate(getAssetValue(a,"INSTALL_DATE","install_date"));
+
+      const actions=
+        a.status==="deleted"
+        ? `<button class="btn-recover" onclick="recoverAsset('${a.asset_number}')">Recover</button>`
+        : `<button class="btn-issue" ${a.status==="issued"?"disabled":""} onclick="window.location.href='issue_asset.html?asset=${a.asset_number}'">Issue</button>
+           <button class="btn-receive" onclick="window.location.href='receive_asset.html?asset=${a.asset_number}'">Receive</button>
+           <button class="btn-delete" onclick="window.location.href='delete_asset.html?asset=${a.asset_number}'">Delete</button>`;
+
+      tbody.innerHTML+=`
+        <tr>
+          <td class="asset-link" onclick="showAssetDetails('${a.asset_number}')">${a.asset_number}</td>
+          <td>${a.sub_category||"-"}</td>
+          <td>${brand}</td>
+          <td>${model}</td>
+          <td>${location}</td>
+          <td>${installDate}</td>
+          <td>${qty}</td>
+          <td>${a.status==="issued"?"issued":a.status}</td>
+          <td class="table-actions">${actions}</td>
+        </tr>`;
+    });
+
+    updatePagination(totalPages);
+  }
+
+  function updatePagination(totalPages){
+    let container=document.getElementById("paginationContainer");
+    if(!container){
+      container=document.createElement("div");
+      container.id="paginationContainer";
+      container.style.textAlign="center";
+      container.style.marginTop="10px";
+      document.querySelector("#assetTable").after(container);
+    }
+    container.innerHTML=`
+      <button id="prevPage" ${currentPage===1?"disabled":""}>&lt;</button>
+      <span> Page ${currentPage} of ${totalPages||1} </span>
+      <button id="nextPage" ${currentPage===totalPages?"disabled":""}>&gt;</button>`;
+    document.getElementById("prevPage").onclick=()=>{if(currentPage>1){currentPage--;renderAssets();}};
+    document.getElementById("nextPage").onclick=()=>{if(currentPage<totalPages){currentPage++;renderAssets();}};
+  }
+
+  // Popup + Actions
+  window.showAssetDetails = function(assetNumber){
+  const a = allAssets.find(x => x.asset_number === assetNumber);
+  if(!a) return;
+  const f = a.fields || {};
+  const getF = (k, fb="-") => safeString(f[k], fb);
+
+  const html = `
+    <p><b>Asset Number:</b> ${getF("ASSET_SLNO", a.asset_number)}</p>
+    <p><b>Type:</b> ${getF("ASSET_TYPE", a.sub_category)}</p>
+    <p><b>Category:</b> ${a.category||"-"}</p>
+    <p><b>Brand:</b> ${getF("BRAND_NAME")}</p>
+    <p><b>Model:</b> ${getF("MODEL_NO")}</p>
+    <p><b>Location:</b> ${getF("LOCATION")}</p>
+    <p><b>Install Date:</b> ${formatDate(getF("INSTALL_DATE","-"))}</p>
+    <p><b>Warranty:</b> ${getF("WARRANTY")}</p>
+    <p><b>Supplier:</b> ${getF("Supplied By")}</p>
+    <p><b>Remarks:</b> ${getF("Remarks")}</p>
+    <p><b>Status:</b> ${a.status||"-"}</p>`;
+
+  document.getElementById("popupContent").innerHTML = html;
+
+  const barcodeEl = document.getElementById("barcodePopup");
+  barcodeEl.innerHTML = "";
+  currentBarcode = a.asset_number || "";
+  if(currentBarcode) {
+    JsBarcode(barcodeEl, currentBarcode, { format:"CODE128", width:2, height:80, displayValue:true });
+    document.getElementById("printBtn").style.display = "inline-block"; // show button
+  } else {
+    document.getElementById("printBtn").style.display = "none"; // hide if no barcode
+  }
+
+  document.getElementById("popupOverlay").style.display = "block";
+  document.getElementById("assetPopup").style.display = "block";
+};
+
+  window.closePopup=()=>{document.getElementById("popupOverlay").style.display="none";document.getElementById("assetPopup").style.display="none";};
+  window.printBarcode=()=>{
+    if(!currentBarcode) return;
+    const win=window.open("","_blank");
+    win.document.write(`<svg id="barcode"></svg>
+      <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+      <script>JsBarcode("#barcode","${currentBarcode}",{format:"CODE128",width:2,height:60,displayValue:true});window.print();<\/script>`);
+  };
+
+  window.deleteAsset=async function(assetNumber){
+    if(!confirm(`Delete asset ${assetNumber}?`)) return;
+    try{
+      const res=await fetch(`${API_BASE}/${assetNumber}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});
+      await res.json();await loadAssets();
+    } catch(err){console.error(err);alert("âš ï¸ Error deleting asset.");}
+  };
+
+  window.recoverAsset=async function(assetNumber){
+    try{
+      const res=await fetch(`${API_BASE}/recover/${assetNumber}`,{method:"POST",headers:{Authorization:`Bearer ${token}`}});
+      await res.json();await loadAssets();
+    } catch(err){console.error(err);alert("âš ï¸ Error recovering asset.");}
+  };
+
+  window.clearSearch=function(){
+    ["searchInput","filterCategory","filterType","filterBrand","filterLocation","filterYear","filterStatus","sortBy"].forEach(id=>{
+      const el=document.getElementById(id);if(el) el.value="";
+    });
+    currentPage=1;
+    renderAssets();
+  };
+  window.searchAsset=function(){currentPage=1;renderAssets();};
+  window.logout=function(){localStorage.removeItem("token");location.href="login.html";};
+  loadAssets();
+});
+</script>
+
+
+
+
+<!-- Developer Watermark -->
+<style>
+.dev-watermark {
+  position: fixed;
+  bottom: 105px;
+  right: 25px;
+  width: 70px;
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 9999;
+  filter: grayscale(10%);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+</style>
+<img src="/G-NTTF.png" alt="Developer Watermark" class="dev-watermark" title="Developed by G-NTTF" />
+</body>
+</html>
+

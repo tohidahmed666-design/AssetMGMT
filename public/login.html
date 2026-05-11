@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Asset Management - Auth</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: url('KSP-Logo/LOGO.png') no-repeat center center fixed;
+      background-size: cover;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      position: relative;
+    }
+
+    body::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 0;
+    }
+
+    .auth-container {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+      width: 400px;
+      text-align: center;
+      color: #fff;
+      position: relative;
+      z-index: 1;
+    }
+
+    .auth-logo {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 20px auto;
+  background: url('KSP-Logo/Police%201.jpeg') no-repeat center center;
+  background-size: contain;
+  background-color: #fff;
+  border-radius: 50%;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+    h2 { margin-bottom: 15px; font-weight: 600; }
+
+    input, select {
+      width: 100%; padding: 12px; margin: 10px 0;
+      border: none; border-radius: 8px; outline: none; font-size: 14px;
+    }
+
+    input:focus, select:focus {
+      border: 2px solid #00f2fe;
+      background-color: rgba(255,255,255,0.9);
+    }
+
+    button {
+      width: 100%; padding: 12px; margin-top: 10px;
+      background: linear-gradient(90deg, #00c6ff, #0072ff);
+      border: none; border-radius: 8px; color: white; font-size: 16px;
+      font-weight: 600; cursor: pointer; transition: 0.3s;
+    }
+
+    button:hover {
+      background: linear-gradient(90deg, #0072ff, #00c6ff);
+      transform: translateY(-2px);
+    }
+
+    .link {
+      margin-top: 12px; display: block; color: #fff;
+      cursor: pointer; font-size: 14px; text-decoration: underline;
+    }
+
+    #msg, #fpMsg { margin-top: 15px; font-size: 14px; color: #ffdddd; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="auth-container">
+  <div class="auth-logo"></div>
+
+  <!-- Login Form -->
+  <div id="loginForm">
+    <h2>🔐 Asset Management System Login</h2>
+    <select id="policeStation"></select>
+    <input type="email" id="loginEmail" placeholder="Email" readonly>
+    <input type="password" id="loginPassword" placeholder="Password" disabled>
+    <button onclick="login()">Login</button>
+    <span class="link" onclick="showForgot()">Forgot Password?</span>
+    <p id="msg"></p>
+  </div>
+
+  <!-- Forgot Password Form -->
+  <div id="forgotForm" class="hidden">
+    <h2>📧 Forgot Password</h2>
+    <select id="fpStation"></select>
+    <input type="email" id="fpEmail" placeholder="Email" readonly>
+    <button onclick="sendOTP()">Send OTP</button>
+
+    <div id="otpSection" class="hidden">
+      <input type="text" id="fpOtp" placeholder="Enter OTP">
+      <input type="password" id="newPassword" placeholder="New Password">
+      <button onclick="resetPassword()">Reset Password</button>
+    </div>
+
+    <span class="link" onclick="showLogin()">🔙 Back to Login</span>
+    <p id="fpMsg"></p>
+  </div>
+
+</div>
+<script defer>
+  // Auto-detect API base
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isFile = window.location.protocol === 'file:';
+  const isLiveServer = isLocalhost && window.location.port !== '5000' && window.location.port !== '';
+
+  const API_BASE = (isFile || isLiveServer) ? "http://localhost:5000" : window.location.origin;
+  console.log("🛠️ API_BASE set to:", API_BASE);
+
+
+  
+  // --- Station emails mapping ---
+  const stationEmails = {
+    "Gadag Town PS": "towngdg@ksp.gov.in",
+    "Gadag Traffic PS": "trafficgdg@ksp.gov.in",
+    "Betageri PS": "betagerigdg@ksp.gov.in",
+    "Betageri Extention PS": "betageriextn@ksp.gov.in",
+    "Gadag Rural PS": "ruralgdgdg@ksp.gov.in",
+    "Gadag Women PS": "womengdg@ksp.gov.in",
+    "Gadag CEN PS": "cengdg@ksp.gov.in",
+    "Mulagund PS": "mulagundgdg@ksp.gov.in",
+    "Ron PS": "rongdg@ksp.gov.in",
+    "Naregal PS": "naregalgdg@ksp.gov.in",
+    "Gajendragad PS": "gajendragadgdg@ksp.gov.in",
+    "Shirahatti PS": "shirahattigdg@ksp.gov.in",
+    "Lakshmeshwar PS": "lakshmeshwargdg@ksp.gov.in",
+    "Nargund PS": "nargundgdg@ksp.gov.in",
+    "Mundargi PS": "mundaragigdg@ksp.gov.in",
+    "Gadag Sub-Division": "sdpogdg@ksp.gov.in",
+    "NARAGUND SDPO": "sdponaragundgdg@ksp.gov.in",
+    "Betageri Circle": "cpibetagerigdg@ksp.gov.in",
+    "Ron Circle": "cpirongdg@ksp.gov.in",
+    "Shirahatti Circle": "cpishirahattigdg@ksp.gov.in",
+    "GADAG DAR": "dargdg@ksp.gov.in",
+    "Stores, DPO Gadag": "storesgdg@ksp.gov.in",
+    "Gadag Control Room": "dcgdg@ksp.gov.in",
+    "Computer Section DPO Gadag": "gdgsysadm@ksp.gov.in",
+    "CDR Section, DPO, Gadag": "cdr1spgdg@ksp.gov.in",
+    "SOCO Officers": "socogdg@ksp.gov.in",
+    "SMMC DPO Gadag": "smmgdg@ksp.gov.in",
+    "Passport DPO Gadag": "passportgdg@ksp.gov.in",
+    "DCRB DPO Gadag": "dcrbgdg@ksp.gov.in",
+    "DSB DPO Gadag": "dsbgdg@ksp.gov.in",
+    "FPU DPO Gadag": "fpugdg@ksp.gov.in",
+    "CB Section DPO Gadag": "spgdg@ksp.gov.in",
+    "Crime Section DPO Gadag": "sscrmgdg@ksp.gov.in",
+    "PA to ASP Gadag": "patospgdg@ksp.gov.in",
+    "AAO DPO Gadag": "aaogdg@ksp.gov.in",
+    "SS ACT DPO Gadag": "ssactgdg@ksp.gov.in",
+    "SS EST DPO Gadag": "ssestgdg@ksp.gov.in",
+    "EST1, DPO, Gadag": "est1gdg@ksp.gov.in",
+    "EST2, DPO, Gadag": "est2gdg@ksp.gov.in",
+    "EST3, DPO, Gadag": "est3gdg@ksp.gov.in",
+    "EST4, DPO, Gadag": "est4gdg@ksp.gov.in",
+    "EST5, DPO, Gadag": "est5gdg@ksp.gov.in",
+    "EST6, DPO, Gadag": "est6gdg@ksp.gov.in",
+    "ACT1, DPO, Gadag": "act1gdg@ksp.gov.in",
+    "ACT2, DPO, Gadag": "act2gdg@ksp.gov.in",
+    "ACT3, DPO, Gadag": "act3gdg@ksp.gov.in",
+    "ACT4, DPO, Gadag": "act4gdg@ksp.gov.in",
+    "ACT5, DPO, Gadag": "act5gdg@ksp.gov.in",
+    "ACT6, DPO, Gadag": "act6gdg@ksp.gov.in"
+  };
+  
+  // --- Populate dropdowns ---
+  function populateStations(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+  
+    select.innerHTML = "<option value=''>-- Select Station --</option>";
+  
+    Object.keys(stationEmails).sort().forEach(station => {
+      const opt = document.createElement("option");
+      opt.value = station;
+      opt.textContent = station;
+      select.appendChild(opt);
+    });
+  }
+  
+  window.addEventListener("DOMContentLoaded", () => {
+    populateStations("policeStation");
+    populateStations("fpStation");
+  
+    document.getElementById("policeStation").addEventListener("change", e => {
+      const station = e.target.value;
+      const email = stationEmails[station] || "";
+      document.getElementById("loginEmail").value = email;
+      document.getElementById("loginPassword").disabled = !email;
+    });
+  
+    document.getElementById("fpStation").addEventListener("change", e => {
+      const station = e.target.value;
+      document.getElementById("fpEmail").value = stationEmails[station] || "";
+    });
+  });
+  
+  // --- Login Function ---
+  async function login() {
+    const station = document.getElementById("policeStation").value;
+    const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+    const password = document.getElementById("loginPassword").value.trim();
+    const msgEl = document.getElementById("msg");
+    msgEl.innerText = "";
+  
+    if (!email || !password) {
+      msgEl.style.color = "#ffdddd";
+      msgEl.innerText = "⚠️ Select a station and enter password.";
+      return;
+    }
+  
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await res.json();
+  
+      if (res.ok) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("currentUserEmail", email);
+        localStorage.setItem("currentUserStationName", station);
+  
+        msgEl.style.color = "#00ff99";
+        msgEl.innerText = "✅ Login successful! Redirecting...";
+        setTimeout(() => window.location.href = "dashboard.html", 1000);
+      } else {
+        msgEl.style.color = "#ffdddd";
+        msgEl.innerText = `❌ ${data.message || "Login failed"}`;
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      msgEl.style.color = "#ffdddd";
+      
+      const isNetworkError = err instanceof TypeError && (err.message.includes("fetch") || err.message.includes("NetworkError") || err.message.includes("Failed to fetch"));
+      
+      if (isNetworkError) {
+        msgEl.innerHTML = `⚠️ <b>Connection Refused.</b><br>
+          1. Ensure your backend is running (<code>npm run dev</code>).<br>
+          2. Check that the server is on port 5000.<br>
+          3. Check your terminal for Database errors.`;
+      } else {
+        msgEl.innerText = "⚠️ Server error. Try again later.";
+      }
+    }
+
+  }
+  
+  // --- Forgot Password Functions ---
+  async function sendOTP() {
+    const stationEmail = document.getElementById("fpEmail").value.trim().toLowerCase();
+    const fpMsg = document.getElementById("fpMsg");
+    const adminEmail = "tohidmahar5@gmail.com"; 
+    
+    fpMsg.innerText = "⏳ Sending OTP...";
+    fpMsg.style.color = "#fff";
+  
+    if (!stationEmail) {
+      fpMsg.style.color = "#ffdddd";
+      fpMsg.innerText = "⚠️ Select a station first.";
+      return;
+    }
+  
+    try {
+      const res = await fetch(`${API_BASE}/auth/request-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: stationEmail, sendTo: adminEmail })
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok) {
+        fpMsg.style.color = "#00ff99";
+        fpMsg.innerText = data.message || "✅ OTP sent successfully.";
+        document.getElementById("otpSection").classList.remove("hidden");
+      } else {
+        fpMsg.style.color = "#ffdddd";
+        fpMsg.innerText = "❌ " + (data.message || "Failed to send OTP");
+        if (data.error) console.error("Server Error Detail:", data.error);
+      }
+    } catch (err) {
+      console.error("sendOTP error:", err);
+      fpMsg.style.color = "#ffdddd";
+      
+      const isNetworkError = err instanceof TypeError && (err.message.includes("fetch") || err.message.includes("NetworkError") || err.message.includes("Failed to fetch"));
+      
+      if (isNetworkError) {
+        fpMsg.innerHTML = `⚠️ <b>Connection Failed.</b><br>
+          1. The server may be restarting or sleeping.<br>
+          2. Check if your internet is stable.<br>
+          3. If running locally, ensure <code>npm run dev</code> is active.`;
+      } else {
+        fpMsg.innerText = "⚠️ Error: " + err.message;
+      }
+    }
+  }
+  
+  async function resetPassword() {
+    const email = document.getElementById("fpEmail").value.trim().toLowerCase();
+    const otp = document.getElementById("fpOtp").value.trim();
+    const newPassword = document.getElementById("newPassword").value.trim();
+    const fpMsg = document.getElementById("fpMsg");
+    fpMsg.innerText = "";
+  
+    if (!otp || !newPassword) {
+      fpMsg.style.color = "#ffdddd";
+      fpMsg.innerText = "⚠️ Enter OTP and new password.";
+      return;
+    }
+  
+    try {
+      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp, newPassword })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        fpMsg.style.color = "#00ff99";
+        fpMsg.innerText = "✅ Password reset successful. Redirecting...";
+        setTimeout(showLogin, 2000);
+      } else {
+        fpMsg.style.color = "#ffdddd";
+        fpMsg.innerText = "❌ " + (data.message || "Reset failed");
+      }
+    } catch (err) {
+      console.error("resetPassword error:", err);
+      fpMsg.style.color = "#ffdddd";
+      fpMsg.innerText = "⚠️ Server connection refused.";
+    }
+  }
+  
+  // --- Toggle Forms ---
+  function showForgot() {
+    document.getElementById("loginForm").classList.add("hidden");
+    document.getElementById("forgotForm").classList.remove("hidden");
+  }
+  
+  function showLogin() {
+    document.getElementById("forgotForm").classList.add("hidden");
+    document.getElementById("loginForm").classList.remove("hidden");
+    document.getElementById("fpOtp").value = "";
+    document.getElementById("newPassword").value = "";
+    document.getElementById("otpSection").classList.add("hidden");
+    document.getElementById("fpMsg").innerText = "";
+  }
+  </script>
+
+<!-- Developer Watermark -->
+<style>
+.dev-watermark {
+  position: fixed;
+  bottom: 105px;
+  right: 25px;
+  width: 70px;
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 9999;
+  filter: grayscale(10%);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+</style>
+<img src="/G-NTTF.png" alt="Developer Watermark" class="dev-watermark" title="Developed by G-NTTF" />
+</body>
+</html>

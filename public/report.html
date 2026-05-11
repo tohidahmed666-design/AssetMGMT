@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Asset Report</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* --- Container & Card --- */
+.container {
+  max-width: 1300px;
+  margin: 40px auto;
+  padding: 20px;
+}
+.report-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  overflow-x: auto;
+}
+/* --- Headings --- */
+.container h1 {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #333;
+}
+/* --- Filters --- */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+.filters label {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  color: #444;
+}
+.filters input, .filters select {
+  padding: 6px 8px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+.filters button {
+  padding: 8px 14px;
+  background: #2575fc;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.filters button:hover {
+  background: #1a5ed8;
+}
+/* --- Export button --- */
+.export-btn {
+  margin-bottom: 15px;
+  padding: 8px 14px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.export-btn:hover {
+  background: #218838;
+}
+/* --- Table --- */
+table {
+  width: 100%;
+  min-width: 1000px;
+  border-collapse: collapse;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 14px;
+}
+thead {
+  background: linear-gradient(to right, #6a11cb, #2575fc);
+  color: white;
+  text-align: left;
+}
+th, td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+}
+tbody tr:nth-child(even) {
+  background: #f9f9f9;
+}
+tbody tr:hover {
+  background: #eef3ff;
+}
+td {
+  color: #444;
+}
+/* --- Pagination buttons --- */
+#paginationContainer {
+  text-align: center;
+  margin-top: 10px;
+}
+#paginationContainer button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0 3px;
+  font-size: 16px;
+  text-align: center;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#paginationContainer button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* --- Responsive --- */
+@media (max-width: 1100px) {
+  .filters {
+    flex-direction: column;
+  }
+  table {
+    min-width: 100%;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<div class="navbar">
+  <h1>📦 Asset Management</h1>
+  <ul>
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="view_assets.html">View Assets</a></li>
+    <li><a href="add_asset.html">Add Asset</a></li>
+    <li><button onclick="logout()">Logout</button></li>
+  </ul>
+</div>
+
+<!-- Report Card -->
+<div class="container report-card">
+  <h1>📊 Asset Report</h1>
+
+  <!-- Filters -->
+  <div class="filters">
+    <label>Status:
+      <select id="statusFilter">
+        <option value="">All</option>
+        <option value="available">Available</option>
+        <option value="issued">Issued</option>
+        <option value="deleted">Deleted</option>
+      </select>
+    </label>
+    <label>Type: <input type="text" id="typeFilter" placeholder="Type"></label>
+    <label>Brand: <input type="text" id="brandFilter" placeholder="Brand"></label>
+    <label>Model: <input type="text" id="modelFilter" placeholder="Model"></label>
+    <label>From: <input type="date" id="startDate"></label>
+    <label>To: <input type="date" id="endDate"></label>
+    <button onclick="applyFilters()">Apply Filters</button>
+  </div>
+
+  <button class="export-btn" onclick="exportExcel()">📥 Export to Excel</button>
+
+  <!-- Report Table -->
+  <table id="reportTable">
+    <thead>
+      <tr>
+        <th>Asset Number</th>
+        <th>Type</th>
+        <th>Brand</th>
+        <th>Model</th>
+        <th>Location</th>
+        <th>Status</th>
+        <th>Issued To</th>
+        <th>Issuer</th>
+        <th>Issue Date</th>
+        <th>Quantity</th>
+        <th>Install Date</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- Pagination -->
+  <div id="paginationContainer"></div>
+</div>
+
+<!-- SheetJS for Excel export (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<script>
+const API_BASE = "/api/assets";
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+
+let allAssets = [];
+let currentPage = 1;
+const perPage = 10;
+
+function formatDate(dateStr) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (isNaN(d)) return "-";
+  return d.toLocaleString();
+}
+
+async function loadReport() {
+  try {
+    const res = await fetch(API_BASE, { headers: { Authorization: `Bearer ${token}` } });
+    allAssets = await res.json();
+    if (!Array.isArray(allAssets)) allAssets = [];
+    renderTable();
+  } catch (err) {
+    console.error("Error loading report:", err);
+    alert("⚠️ Failed to load report. Check backend server.");
+  }
+}
+
+function renderTable() {
+  const tbody = document.querySelector("#reportTable tbody");
+  tbody.innerHTML = "";
+
+  const statusFilter = document.getElementById("statusFilter").value.toLowerCase();
+  const typeFilter = document.getElementById("typeFilter").value.toLowerCase();
+  const brandFilter = document.getElementById("brandFilter").value.toLowerCase();
+  const modelFilter = document.getElementById("modelFilter").value.toLowerCase();
+  const startDate = document.getElementById("startDate").value;
+  const endDate = document.getElementById("endDate").value;
+
+  const filtered = allAssets.filter(a => {
+    const installDate = new Date(a.install_date);
+    const start = startDate ? new Date(startDate + "T00:00:00") : null;
+    const end = endDate ? new Date(endDate + "T23:59:59") : null;
+
+    return (
+      (!statusFilter || a.status?.toLowerCase() === statusFilter) &&
+      (!typeFilter || (a.sub_category || "").toLowerCase().includes(typeFilter)) &&
+      (!brandFilter || (a.brand || "").toLowerCase().includes(brandFilter)) &&
+      (!modelFilter || (a.model || "").toLowerCase().includes(modelFilter)) &&
+      (!start || installDate >= start) &&
+      (!end || installDate <= end)
+    );
+  });
+
+  const totalPages = Math.ceil(filtered.length / perPage);
+  if (currentPage > totalPages) currentPage = totalPages || 1;
+  const start = (currentPage - 1) * perPage;
+  const end = start + perPage;
+  const pageAssets = filtered.slice(start, end);
+
+  pageAssets.forEach(a => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${a.asset_number || "-"}</td>
+        <td>${a.sub_category || "-"}</td>
+        <td>${a.brand || "-"}</td>
+        <td>${a.model || "-"}</td>
+        <td>${a.location || "-"}</td>
+        <td>${a.status || "-"}</td>
+        <td>${a.issued_to || "-"}</td>
+        <td>${a.issuer_name || "-"}</td>
+        <td>${formatDate(a.issued_at)}</td>
+        <td>${a.quantity ?? 1}</td>
+        <td>${formatDate(a.install_date)}</td>
+      </tr>`;
+  });
+
+  renderPagination(totalPages);
+}
+
+function renderPagination(totalPages) {
+  const container = document.getElementById("paginationContainer");
+  container.innerHTML = `
+    <button id="prevPage" ${currentPage===1?'disabled':''}>&lt;</button>
+    <span> Page ${currentPage} of ${totalPages || 1} </span>
+    <button id="nextPage" ${currentPage===totalPages?'disabled':''}>&gt;</button>
+  `;
+  document.getElementById("prevPage").onclick = () => { if(currentPage>1){currentPage--; renderTable();} };
+  document.getElementById("nextPage").onclick = () => { if(currentPage<totalPages){currentPage++; renderTable();} };
+}
+
+function applyFilters() {
+  currentPage = 1;
+  renderTable();
+}
+
+function exportExcel() {
+  const table = document.getElementById("reportTable");
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.table_to_sheet(table);
+  XLSX.utils.book_append_sheet(wb, ws, "Asset Report");
+  XLSX.writeFile(wb, "asset_report.xlsx");
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  location.href = "login.html";
+}
+
+loadReport();
+</script>
+
+<!-- Developer Watermark -->
+<style>
+.dev-watermark {
+  position: fixed;
+  bottom: 105px;
+  right: 25px;
+  width: 70px;
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 9999;
+  filter: grayscale(10%);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+</style>
+<img src="/G-NTTF.png" alt="Developer Watermark" class="dev-watermark" title="Developed by G-NTTF" />
+</body>
+</html>

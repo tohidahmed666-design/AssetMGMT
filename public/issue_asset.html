@@ -1,0 +1,320 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Issue Asset</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .form-container { 
+    max-width: 500px; 
+    margin: 40px auto; 
+    background: white; 
+    padding: 30px; 
+    border-radius: 10px; 
+    box-shadow: 0px 4px 10px rgba(0,0,0,0.1); 
+  }
+  .form-container input, .form-container button { 
+    width: 100%; 
+    margin: 10px 0; 
+    padding: 10px; 
+    font-size: 14px; 
+  }
+  .form-container button { 
+    background: linear-gradient(to right, #00c6ff, #0072ff); 
+    border: none; 
+    color: white; 
+    cursor: pointer; 
+    font-weight: bold; 
+    border-radius: 6px; 
+  }
+  .back-button { 
+    position: fixed; 
+    top: 100px; 
+    left: 30px; 
+    text-align: center; 
+    cursor: pointer; 
+  }
+  .back-button img { 
+    width: 40px; 
+    height: 40px; 
+    display: block; 
+    margin: 0 auto; 
+  }
+  .back-button span { 
+    display: block; 
+    margin-top: 5px; 
+    font-size: 13px; 
+    color: rgb(255, 255, 255); 
+  }
+  #msg { 
+    font-weight: bold; 
+    text-align: center; 
+    margin-top: 10px; 
+  }
+</style>
+</head>
+<body>
+<div class="navbar">
+  <h1>ðŸ“¦ Asset Management</h1>
+  <ul>
+    <li><a href="dashboard.html">Dashboard</a></li>
+    <li><a href="view_assets.html">View Assets</a></li>
+    <li><a href="logs.html">Logs</a></li>
+    <li><button onclick="logout()">Logout</button></li>
+  </ul>
+</div>
+
+<div class="back-button" onclick="goBack()">
+  <img src="backWhite.png" alt="Back">
+  <span>Back to Dashboard</span>
+</div>
+
+<div class="form-container">
+  <h2>ðŸ“¤ Issue Asset</h2>
+  <form id="issueForm">
+    <input type="text" id="assetNumber" placeholder="Asset Number" required>
+    <input type="text" id="assetType" placeholder="Asset Type" readonly>
+    <input type="text" id="assetBrand" placeholder="Brand" readonly>
+    <input type="text" id="assetModel" placeholder="Model" readonly>
+    <input type="text" id="issuerName" placeholder="Issuer Name" required>
+    <input type="email" id="issuerEmail" placeholder="Issuer Email ID" required>
+    <input type="text" id="issuedTo" placeholder="Issued To (Receiver Name)" required>
+    <input type="email" id="receiverEmail" placeholder="Receiver Email ID" required>
+    
+    <button type="submit">Issue</button>
+    <button type="button" id="scanBtn">ðŸ“· Scan Barcode</button>
+    <p id="msg"></p>
+  </form>
+</div>
+<script>
+const API_BASE = "/api/assets";
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
+
+// ==============================
+// ðŸ§© Element References
+// ==============================
+const assetField = document.getElementById("assetNumber");
+const assetTypeField = document.getElementById("assetType");
+const assetBrandField = document.getElementById("assetBrand");
+const assetModelField = document.getElementById("assetModel");
+const issuerNameField = document.getElementById("issuerName");
+const issuerEmailField = document.getElementById("issuerEmail");
+const issuedToField = document.getElementById("issuedTo");
+const receiverEmailField = document.getElementById("receiverEmail");
+const msg = document.getElementById("msg");
+
+// ==============================
+// ðŸ‘¤ Prefill Issuer Info
+// ==============================
+const userData = JSON.parse(localStorage.getItem("user") || "{}");
+if (userData.name && issuerNameField) issuerNameField.value = userData.name;
+if (userData.email && issuerEmailField) issuerEmailField.value = userData.email;
+
+// ==============================
+// ðŸ” Prefill Asset from Query Param
+// ==============================
+const params = new URLSearchParams(window.location.search);
+const preAsset = params.get("asset");
+if (preAsset) {
+  if (assetField) assetField.value = preAsset;
+  fetchAssetDetails(preAsset);
+}
+
+// ==============================
+// ðŸ“· Scanner Handler
+// ==============================
+const scanBtn = document.getElementById("scanBtn");
+if (scanBtn) {
+  scanBtn.addEventListener("click", () => {
+    if (assetField) assetField.value = "";
+    assetField.focus();
+    msg.innerText = "ðŸ”Ž Ready to scan... Scan the asset barcode now.";
+    msg.style.color = "black";
+  });
+}
+
+// ==============================
+// âŒ¨ï¸ Detect Asset Input (Auto-Fetch)
+// ==============================
+if (assetField) {
+  assetField.addEventListener("input", async () => {
+    const val = assetField.value.trim();
+    if (val.includes("-") && val.length > 3) {
+      msg.innerText = `ðŸ”„ Checking asset details for: ${val}`;
+      msg.style.color = "blue";
+      fetchAssetDetails(val);
+    } else {
+      if (assetTypeField) assetTypeField.value = "";
+      if (assetBrandField) assetBrandField.value = "";
+      if (assetModelField) assetModelField.value = "";
+      msg.innerText = "";
+    }
+  });
+}
+
+// ==============================
+// ðŸ§¾ Fetch Asset Details
+// ==============================
+async function fetchAssetDetails(assetNumber) {
+  if (!assetNumber) return;
+  try {
+    const res = await fetch(`${API_BASE}/${encodeURIComponent(assetNumber)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) throw new Error("Asset not found");
+
+    const asset = await res.json();
+
+    if (assetTypeField) assetTypeField.value = asset.type || "";
+    if (assetBrandField) assetBrandField.value = asset.brand || "";
+    if (assetModelField) assetModelField.value = asset.model || "";
+
+    msg.innerText = `âœ… Asset found: ${asset.asset_number || assetNumber}`;
+    msg.style.color = "green";
+  } catch (err) {
+    console.error("Fetch asset failed:", err);
+    if (assetTypeField) assetTypeField.value = "";
+    if (assetBrandField) assetBrandField.value = "";
+    if (assetModelField) assetModelField.value = "";
+    msg.innerText = `âŒ Asset not found: ${assetNumber}`;
+    msg.style.color = "red";
+  }
+}
+
+// ==============================
+// ðŸ“¦ Check Asset Status Before Issuing
+// ==============================
+async function checkAssetStatus(assetNumber) {
+  try {
+    const res = await fetch(`${API_BASE}/status/${encodeURIComponent(assetNumber)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) throw new Error("Unable to fetch status");
+    const data = await res.json();
+    return data.status; // "available" or "issued"
+  } catch (err) {
+    console.error("Status check failed:", err);
+    return null;
+  }
+}
+
+// ==============================
+// ðŸš€ Issue Asset Handler
+// ==============================
+const issueForm = document.getElementById("issueForm");
+if (issueForm) {
+  issueForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const assetNumber = assetField?.value.trim();
+    const issuerName = issuerNameField?.value.trim();
+    const issuerEmail = issuerEmailField?.value.trim();
+    const issuedTo = issuedToField?.value.trim();
+    const receiverEmail = receiverEmailField?.value.trim();
+
+    // âœ… Validate fields
+    if (!assetNumber || !issuerName || !issuerEmail || !issuedTo || !receiverEmail) {
+      msg.innerText = "âŒ Please fill all required fields.";
+      msg.style.color = "red";
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(issuerEmail) || !emailRegex.test(receiverEmail)) {
+      msg.innerText = "âŒ Invalid email format.";
+      msg.style.color = "red";
+      return;
+    }
+
+    // âœ… Step 1: Check Asset Status
+    msg.innerText = "ðŸ”Ž Checking asset status...";
+    msg.style.color = "blue";
+    const status = await checkAssetStatus(assetNumber);
+
+    if (status === "issued") {
+      msg.innerText = `âŒ Asset ${assetNumber} is already issued.`;
+      msg.style.color = "red";
+      return;
+    } else if (status === null) {
+      msg.innerText = "âš ï¸ Unable to verify asset status. Please try again.";
+      msg.style.color = "orange";
+      return;
+    }
+
+    // âœ… Step 2: Issue the Asset
+    try {
+      msg.innerText = "â³ Issuing asset, please wait...";
+      msg.style.color = "blue";
+
+      const res = await fetch(`${API_BASE}/issue`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          asset_number: assetNumber,
+          issued_to: issuedTo,
+          receiver_email: receiverEmail,
+          notes: "",
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        msg.innerText = `âœ… ${data.message || "Asset issued successfully."}`;
+        msg.style.color = "green";
+        localStorage.setItem("refreshAssets", "true");
+        setTimeout(() => (location.href = "view_assets.html"), 1500);
+      } else {
+        msg.innerText = `âŒ ${data.error || "Failed to issue asset."}`;
+        msg.style.color = "red";
+      }
+    } catch (err) {
+      console.error("Issue request failed:", err);
+      msg.innerText = "âŒ Server error while issuing asset.";
+      msg.style.color = "red";
+    }
+  });
+}
+
+// ==============================
+// ðŸ§­ Navigation Controls
+// ==============================
+function goBack() {
+  location.href = "dashboard.html";
+}
+
+function logout() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  location.href = "login.html";
+}
+</script>
+
+
+
+<!-- Developer Watermark -->
+<style>
+.dev-watermark {
+  position: fixed;
+  bottom: 105px;
+  right: 25px;
+  width: 70px;
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 9999;
+  filter: grayscale(10%);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+</style>
+<img src="/G-NTTF.png" alt="Developer Watermark" class="dev-watermark" title="Developed by G-NTTF" />
+</body>
+</html>
+

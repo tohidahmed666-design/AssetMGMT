@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dashboard - Asset Management</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+:root {
+  --sidebar-width: 250px;
+  --sidebar-collapsed-width: 70px;
+  --primary-color: #1b365d;
+  --accent-color: #0a74da;
+  --bg-color: #f7f7f8;
+  --text-color: #ffffff;
+  --hover-color: #0a4a87;
+  --transition-speed: 0.28s;
+  --glass: rgba(255, 255, 255, 0.06);
+  --card-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  --card-radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #eef2f7 0%, #f8fafc 100%);
+  color: #333;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
+  background: linear-gradient(180deg, var(--primary-color), #133253);
+  color: var(--text-color);
+  transition: width var(--transition-speed);
+  display: flex;
+  flex-direction: column;
+  z-index: 120;
+  overflow: hidden;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.08);
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+}
+
+.sidebar .sidebar-header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 8px;
+}
+
+.sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+  flex: 1;
+}
+
+.sidebar ul li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 2px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.18s ease;
+  position: relative;
+  color: var(--text-color);
+}
+
+.sidebar ul li i {
+  width: 28px;
+  text-align: center;
+  font-size: 18px;
+}
+
+.sidebar ul li:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(6px);
+}
+
+/* Tooltip styles for collapsed sidebar */
+.sidebar.collapsed ul li {
+  position: relative;
+}
+
+.sidebar.collapsed li[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar.collapsed ul li span {
+  opacity: 0;
+  transform: translateX(-6px);
+  pointer-events: none;
+}
+
+.sidebar .sidebar-toggle {
+  padding: 12px;
+  cursor: pointer;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sidebar .sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Navbar */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: var(--sidebar-width);
+  right: 0;
+  height: 64px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.06);
+  transition: left var(--transition-speed), width var(--transition-speed);
+  z-index: 100;
+  font-weight: 700;
+  color: #1b365d;
+  font-size: 1.15rem;
+}
+
+.sidebar.collapsed ~ .navbar {
+  left: var(--sidebar-collapsed-width);
+  width: calc(100% - var(--sidebar-collapsed-width));
+}
+
+.profile {
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(10, 116, 218, 0.12);
+}
+
+.profile-panel {
+  display: none;
+  position: absolute;
+  right: 6px;
+  top: 68px;
+  background: #fff;
+  color: #333;
+  min-width: 220px;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  padding: 16px;
+  z-index: 220;
+}
+
+.profile-panel button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 12px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.profile-panel button:hover {
+  background: var(--hover-color);
+  transform: translateY(-1px);
+}
+
+.profile-panel h3 {
+  margin: 0;
+  font-size: 15px;
+  color: var(--primary-color);
+}
+
+/* Main Content */
+.main-content {
+  margin-left: var(--sidebar-width);
+  width: calc(100% - var(--sidebar-width));
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
+  transition: margin-left var(--transition-speed);
+}
+
+.sidebar.collapsed ~ .main-content {
+  margin-left: var(--sidebar-collapsed-width);
+  width: calc(100% - var(--sidebar-collapsed-width));
+}
+
+/* === Dashboard Cards (Professional 2x2 layout) === */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 300px);
+  grid-template-rows: repeat(2, auto);
+  gap: 60px 520px;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+
+/* ✅ Logo behind cards */
+.card-grid::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 470px;
+  height: 500px;
+  background: url('KSP-Logo/Police 1.jpeg') no-repeat center center;
+  background-size: contain;
+  opacity: 0.15;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
+
+.card {
+  background: linear-gradient(165deg, #ffffff, #f8fafc);
+  border-radius: 18px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  padding: 32px 28px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.25s ease-in-out;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  z-index: 1;
+}
+
+.card-icon {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, var(--accent-color), #1664c0);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+}
+
+.card i {
+  font-size: 28px;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.card h3 {
+  color: var(--primary-color);
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.card p {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 28px rgba(10, 74, 135, 0.15);
+}
+
+.card:hover .card-icon {
+  transform: scale(1.08);
+  box-shadow: 0 8px 16px rgba(22, 100, 192, 0.15);
+}
+
+.card:hover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  background: radial-gradient(circle at top left, rgba(10, 116, 218, 0.1), transparent 70%);
+}
+
+/* Contact Developer Icon */
+#contactIcon {
+  position: fixed;
+  right: 30px;
+  bottom: 30px;
+  width: 56px;
+  height: 56px;
+  background: var(--accent-color);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(10, 116, 218, 0.25);
+  transition: all 0.3s ease;
+  z-index: 999;
+  font-size: 24px;
+}
+
+#contactIcon::before {
+  content: "💬";
+  transition: transform 0.3s ease;
+}
+
+#contactIcon:hover {
+  transform: translateY(-5px);
+  background: var(--hover-color);
+  box-shadow: 0 6px 16px rgba(10, 116, 218, 0.35);
+}
+
+/* Contact Developer Modal */
+#contactModal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.form-container {
+  width: 420px;
+  max-width: 95%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+  color: #fff;
+  position: relative;
+  animation: fadeIn 0.35s ease;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.contact-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.close-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255,255,255,0.12);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  transition: all 0.2s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  transform: scale(0.95);
+}
+
+.form-container h2 {
+  margin-top: 0;
+  font-size: 1.5rem;
+  text-align: center;
+  color: #fff;
+  margin-bottom: 18px;
+}
+
+.form-container input,
+.form-container textarea {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  border: none;
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.form-container textarea {
+  resize: none;
+  height: 100px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.form-actions button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.btn-submit {
+  background: linear-gradient(90deg, #0a74da, #0a5aba);
+  color: #fff;
+}
+
+.btn-submit:hover {
+  background: linear-gradient(90deg, #094ea3, #083c7a);
+  transform: translateY(-1px);
+}
+
+.btn-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  background: #111;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  display: none;
+  z-index: 9999;
+}
+
+@keyframes fadeIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+</style>
+</head>
+<body>
+<div class="sidebar collapsed" id="sidebar">
+  <div class="sidebar-header"><span class="logo-icon"></span><span class="logo-text">Assets</span></div>
+  <ul>
+    <li data-tooltip="Activity Logs" onclick="location.href='logs.html'"><i>📋</i><span>Activity Logs</span></li>
+    <li data-tooltip="Reports" onclick="location.href='report.html'"><i>📊</i><span>Reports</span></li>
+    <li data-tooltip="Delete Asset" onclick="location.href='delete_asset.html'">
+      <i>🗑️</i><span>Delete Asset</span>
+    </li>
+  </ul>
+  <div class="sidebar-toggle" id="toggleBtn">☰</div>
+</div>
+
+<div class="navbar">
+  <div class="brand-center">
+    <div style="font-size:16px;font-weight:800;color:#12355a">Asset Management System</div>
+    <div class="title-sub">Centralized asset tracking & control</div>
+  </div>
+  <div class="profile" id="profileBtn">👤</div>
+  <div class="profile-panel" id="profilePanel">
+    <h3 id="userName">Station: Guest</h3>
+    <div id="userEmail" style="margin-bottom:8px;color:#666;font-size:13px">Signed in</div>
+    <button onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<div class="main-content">
+  <h1 id="welcomeTitle" style="font-size:22px;color:#21324a;margin:0 0 6px 0">Welcome,</h1>
+  <div style="color:#51637c;font-size:14px">Choose an action below</div>
+
+  <div class="card-grid">
+    <div class="card" onclick="location.href='add_asset.html'">
+      <div class="card-icon">
+        <i>⊕</i>
+      </div>
+      <h3>Add Asset</h3>
+      <p>Register new equipment in the system</p>
+    </div>
+    <div class="card" onclick="location.href='issue_asset.html'">
+      <div class="card-icon">
+        <i>⇱</i>
+      </div>
+      <h3>Issue Asset</h3>
+      <p>Transfer assets to departments</p>
+    </div>
+    <div class="card" onclick="location.href='receive_asset.html'">
+      <div class="card-icon">
+        <i>⇲</i>
+      </div>
+      <h3>Receive Asset</h3>
+      <p>Accept returned equipment</p>
+    </div>
+    <div class="card" onclick="location.href='view_assets.html'">
+      <div class="card-icon">
+        <i>⚎</i>
+      </div>
+      <h3>View Assets</h3>
+      <p>Track and manage inventory</p>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Contact Icon -->
+<div id="contactIcon" title="Contact Developer"></div>
+
+<!-- Contact Form Modal -->
+<div id="contactModal">
+  <div class="form-container" id="contactDev">
+    <div class="modal-header">
+      <div class="contact-title">📧 Contact Developer</div>
+      <button class="close-btn" id="closeModal">×</button>
+    </div>
+    <form id="helpForm" class="form-row" enctype="multipart/form-data">
+      <div><label for="name">Your name</label><input id="name" type="text" placeholder="Jane Doe" /></div>
+      <div><label for="email">Your email</label><input id="email" type="email" placeholder="you@company.com" required /></div>
+      <div><label for="subject">Subject</label><input id="subject" type="text" placeholder="Short summary" required /></div>
+      <div><label for="message">Message</label><textarea id="message" placeholder="Describe the issue" required></textarea></div>
+      <div><label for="screenshot">Attach screenshot (optional)</label><input id="screenshot" type="file" name="screenshot" accept="image/*" /></div>
+      <div class="form-actions">
+        <button type="button" id="cancelFormBtn" class="btn-cancel">Cancel</button>
+        <button id="submitBtn" class="btn-submit" type="submit"><span class="spinner" id="spinner" style="display:none"></span> Send</button>
+      </div>
+      <div style="color:#9fb0c8;font-size:13px;text-align:center;margin-top:12px;">We will respond soon.</div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Notification Sound -->
+<audio id="notificationSound" preload="auto">
+  <source src="sounds/success.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+function showToast(msg,timeout=4000){
+  const t=document.getElementById("toast");
+  t.textContent=msg;t.style.display="block";
+  clearTimeout(t._to);
+  t._to=setTimeout(()=>t.style.display="none",timeout);
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  const sidebar=document.getElementById("sidebar");
+  const toggleBtn=document.getElementById("toggleBtn");
+  const profileBtn=document.getElementById("profileBtn");
+  const profilePanel=document.getElementById("profilePanel");
+  sidebar.classList.add("collapsed");
+  toggleBtn.onclick=()=>sidebar.classList.toggle("collapsed");
+  profileBtn.onclick=e=>{
+    e.stopPropagation();
+    profilePanel.style.display=profilePanel.style.display==="block"?"none":"block";
+  };
+  window.addEventListener("click",e=>{
+    if(!e.target.closest("#profilePanel")&&!e.target.closest("#profileBtn"))
+      profilePanel.style.display="none";
+  });
+
+  const stationName=localStorage.getItem("currentUserStationName")||"Guest";
+  const email=localStorage.getItem("currentUserEmail")||"Signed in";
+  document.getElementById("userName").textContent="Station: "+stationName;
+  document.getElementById("userEmail").textContent=email;
+  document.getElementById("welcomeTitle").textContent="Welcome, "+stationName;
+
+  // Contact modal toggle
+  const contactIcon=document.getElementById("contactIcon");
+  const contactModal=document.getElementById("contactModal");
+  const closeModal=document.getElementById("closeModal");
+  const cancelFormBtn=document.getElementById("cancelFormBtn");
+  contactIcon.onclick=()=>{contactModal.style.display="flex";}
+  closeModal.onclick=()=>{contactModal.style.display="none";}
+  if(cancelFormBtn) cancelFormBtn.onclick=()=>{contactModal.style.display="none";}
+  window.onclick=e=>{if(e.target===contactModal)contactModal.style.display="none";}
+
+  // Form submit
+  const form=document.getElementById("helpForm");
+  const btn=document.getElementById("submitBtn");
+  const spinner=document.getElementById("spinner");
+  form.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const nameVal=document.getElementById("name").value.trim();
+    const emailVal=document.getElementById("email").value.trim();
+    const subjectVal=document.getElementById("subject").value.trim();
+    const messageVal=document.getElementById("message").value.trim();
+    const screenshot=document.getElementById("screenshot").files[0];
+    if(!emailVal||!subjectVal||!messageVal){showToast("Please complete required fields.");return;}
+    btn.disabled=true;spinner.style.display="inline-block";
+    const formData=new FormData();
+    formData.append("name",nameVal);
+    formData.append("email",emailVal);
+    formData.append("subject",subjectVal);
+    formData.append("message",messageVal);
+    if(screenshot)formData.append("screenshot",screenshot);
+    try{
+      const resp=await fetch("/api/contact",{method:"POST",body:formData});
+      if(resp.ok){
+        // Play notification sound
+        const sound = document.getElementById('notificationSound');
+        sound.currentTime = 0; // Reset the sound to start
+        sound.volume = 0.5; // Set volume to 50%
+        try {
+          await sound.play();
+        } catch (e) {
+          console.log('Notification sound failed to play:', e);
+        }
+        
+        showToast("Message Sent Successfully");
+        form.reset();
+        contactModal.style.display="none";
+      }
+      else{const err=await resp.json();showToast("❌ Failed: "+(err.msg||resp.statusText));}
+    }catch(err){showToast("⚠️ Error: "+err.message);}
+    btn.disabled=false;spinner.style.display="none";
+  });
+});
+
+function logout(){
+  localStorage.removeItem("token");
+  localStorage.removeItem("currentUserName");
+  localStorage.removeItem("currentUserEmail");
+  localStorage.removeItem("currentUserStationName");
+  location.href="login.html";
+}
+</script>
+
+
+
+<!-- Developer Watermark -->
+<style>
+.dev-watermark {
+  position: fixed;
+  bottom: 105px;
+  right: 25px;
+  width: 70px;
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 9999;
+  filter: grayscale(10%);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+</style>
+<img src="/G-NTTF.png" alt="Developer Watermark" class="dev-watermark" title="Developed by G-NTTF" />
+</body>
+</html>
