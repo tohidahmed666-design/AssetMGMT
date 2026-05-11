@@ -7,21 +7,35 @@ const { User, Otp, LoginHistory, sequelize } = require("../models");
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.googlemail.com",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-  connectionTimeout: 10000,
-  logger: true,
-  debug: true,
-  tls: {
-    rejectUnauthorized: false
+// Helper function to send email via SendGrid API
+async function sendEmailViaSendGrid(to, subject, html) {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) {
+    throw new Error("SENDGRID_API_KEY is not set in environment variables");
   }
-});
+
+  const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: { email: "tohidahmed666@gmail.com", name: "Asset Management System" },
+      subject: subject,
+      content: [{ type: "text/html", value: html }]
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error("SendGrid Error Response:", JSON.stringify(errorData, null, 2));
+    throw new Error(`SendGrid API Error: ${response.statusText}`);
+  }
+
+  return true;
+}
 
 /* ======================================================
     🔢 REQUEST OTP
@@ -60,11 +74,7 @@ router.post("/request-otp", async (req, res) => {
     const recipient = sendToOverride || user.email;
     
     try {
-      await transporter.sendMail({
-        from: process.env.GMAIL_USER || "noreply@ksp.gov.in",
-        to: recipient,
-        subject: `Asset Management OTP for ${stationEmail}`,
-        html: `
+      await sendEmailViaSendGrid(recipient, `Asset Management OTP for ${stationEmail}`, `
           <div style="font-family: sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
             <h2 style="color: #0072ff;">OTP Verification</h2>
             <p>You requested an OTP to reset your password for the Asset Management System.</p>
@@ -73,16 +83,13 @@ router.post("/request-otp", async (req, res) => {
             <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
             <p style="font-size: 12px; color: #999;">Station Email: ${stationEmail}</p>
           </div>
-        `
-      });
-      console.log(`📧 [OTP] Email sent to ${recipient}`);
+        `);
+      console.log(`📧 [OTP] Email sent via SendGrid to ${recipient}`);
       res.json({ message: `✅ OTP sent to ${recipient}` });
     } catch (mailErr) {
-      console.error("❌ [OTP] Email Sending Failed:", mailErr);
-      // Even if email fails, we don't want to return a 500 if the OTP was saved
-      // But for debugging, we'll return a specific error
+      console.error("❌ [OTP] SendGrid API Failed:", mailErr);
       res.status(500).json({ 
-        message: "Failed to send email. Please check server logs.",
+        message: "Failed to send email via API. Please check server logs.",
         error: mailErr.message 
       });
     }
