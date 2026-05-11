@@ -8,15 +8,16 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_here";
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
+  host: "smtp.googlemail.com",
   port: 465,
-  secure: true, // true for 465, false for other ports
+  secure: true,
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 10000,
+  connectionTimeout: 10000,
+  logger: true,
+  debug: true,
   tls: {
     rejectUnauthorized: false
   }
