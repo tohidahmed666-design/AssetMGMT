@@ -37,7 +37,7 @@
   </div>
 
   <div class="form-container">
-    <h2>ðŸ—‘ï¸ Dispose Asset / Property</h2>
+    <h2>🗑️ Dispose Asset / Property</h2>
 
     <!-- QR Scanner -->
     <div id="scanner"></div>
@@ -145,9 +145,9 @@ async function fetchAssetDetails(serial) {
 
       const btn = document.querySelector(".dispose-btn");
       btn.disabled = (out.status === "disposed" || out.status === "seized");
-      if (out.status === "disposed") alert("âš ï¸ Asset already disposed!");
-      if (out.status === "seized") alert("âš ï¸ Asset under court custody, needs clearance.");
-    } else alert("âŒ Asset not found.");
+      if (out.status === "disposed") alert("⚠️ Asset already disposed!");
+      if (out.status === "seized") alert("⚠️ Asset under court custody, needs clearance.");
+    } else alert("❌ Asset not found.");
   } catch (err) { console.error("Fetch failed", err); }
 }
 
@@ -161,7 +161,7 @@ document.getElementById("disposeForm").addEventListener("submit", async e => {
   const remarks = document.getElementById("remarks").value.trim();
   const approvalDoc = document.getElementById("approvalDoc").files[0];
 
-  if (!confirm(`âš ï¸ Confirm disposal of asset ${serial}?`)) return;
+  if (!confirm(`⚠️ Confirm disposal of asset ${serial}?`)) return;
 
   const formData = new FormData();
   formData.append("assetNumber", serial);
@@ -217,8 +217,6 @@ function goBack() { location.href = "dashboard.html"; }
 function logout() { localStorage.removeItem("token"); location.href = "login.html"; }
 </script>
 
-
-
 <!-- Developer Watermark -->
 <style>
 .dev-watermark {
@@ -238,4 +236,3 @@ function logout() { localStorage.removeItem("token"); location.href = "login.htm
 <img src="/G-NTTF.png" alt="Developer Watermark" class="dev-watermark" title="Developed by G-NTTF" />
 </body>
 </html>
-
