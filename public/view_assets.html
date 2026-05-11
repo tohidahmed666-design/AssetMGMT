@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -48,7 +48,7 @@
 <body>
 
 <div class="navbar">
-  <h1>ðŸ“¦ Asset Management</h1>
+  <h1>📦 Asset Management</h1>
   <ul>
     <li><a href="dashboard.html">Dashboard</a></li>
     <li><a href="add_asset.html">Add Asset</a></li>
@@ -58,7 +58,7 @@
 </div>
 
 <div class="container" style="max-width:1200px; width:95%;">
-  <h2>ðŸ” View Assets</h2>
+  <h2>🔍 View Assets</h2>
 
   <div class="search-bar">
     <input type="text" id="searchInput" placeholder="Search by Asset Number, Brand, Model, or Location">
@@ -100,11 +100,11 @@
 <!-- Popup -->
 <div class="popup-overlay" id="popupOverlay" onclick="closePopup()"></div>
 <div class="asset-popup" id="assetPopup">
-  <button class="popup-close" onclick="closePopup()">âœ–</button>
+  <button class="popup-close" onclick="closePopup()">✖</button>
   <h3>Asset Details</h3>
   <div id="popupContent"></div>
   <svg id="barcodePopup"></svg>
-  <button id="printBtn" class="btn-print" style="display:none;" onclick="printBarcode()">ðŸ–¨ï¸ Print Barcode</button>
+  <button id="printBtn" class="btn-print" style="display:none;" onclick="printBarcode()">🖨️ Print Barcode</button>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script>

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -246,7 +246,7 @@ input[type="text"], input[type="date"], input[type="file"], select {
 <body>
 
 <div class="navbar">
-  <h1>ðŸ“¦ Asset Management</h1>
+  <h1>📦 Asset Management</h1>
   <ul>
     <li><a href="dashboard.html">Dashboard</a></li>
     <li><a href="view_assets.html">View Assets</a></li>
@@ -257,7 +257,7 @@ input[type="text"], input[type="date"], input[type="file"], select {
 
 <div class="wrapper">
   <div class="form-container" role="main">
-    <h2 style="text-align:center;margin:6px 0 12px 0;">âž• Add Asset</h2>
+    <h2 style="text-align:center;margin:6px 0 12px 0;">➕ Add Asset</h2>
 
     <form id="addForm" enctype="multipart/form-data">
       <!-- CATEGORY -->
@@ -306,7 +306,7 @@ input[type="text"], input[type="date"], input[type="file"], select {
         </div>
 
         <div class="form-row" data-field="more_btn">
-          <button type="button" id="moreDetailsBtn" class="btn-small btn-ghost">ðŸ“‹ More Details</button>
+          <button type="button" id="moreDetailsBtn" class="btn-small btn-ghost">📋 More Details</button>
         </div>
       </div>
 
@@ -317,8 +317,8 @@ input[type="text"], input[type="date"], input[type="file"], select {
       <div class="form-row">
         <label>Image (Upload or Capture)</label>
         <input type="file" id="assetImage" name="assetImage" accept="image/*" />
-        <button type="button" id="useCameraBtn" class="btn-small">ðŸ“· Camera</button>
-        <button type="button" id="captureBtn" class="btn-small" style="display:none;">ðŸ“¸ Capture</button>
+        <button type="button" id="useCameraBtn" class="btn-small">📷 Camera</button>
+        <button type="button" id="captureBtn" class="btn-small" style="display:none;">📸 Capture</button>
         <div id="previewContainer">
           <video id="video" autoplay playsinline style="display:none;"></video>
           <canvas id="canvas" style="display:none;"></canvas>
@@ -328,8 +328,8 @@ input[type="text"], input[type="date"], input[type="file"], select {
 
       <!-- BARCODE ACTIONS -->
       <div class="row-actions">
-        <button type="button" id="printBtn" class="btn-small btn-ghost" style="display:none;">ðŸ–¨ï¸ Print Barcode</button>
-        <button type="button" id="downloadBtn" class="btn-small btn-ghost" style="display:none;">â¬‡ï¸ Download Barcode</button>
+        <button type="button" id="printBtn" class="btn-small btn-ghost" style="display:none;">🖨️ Print Barcode</button>
+        <button type="button" id="downloadBtn" class="btn-small btn-ghost" style="display:none;">⬇️ Download Barcode</button>
       </div>
 
       <!-- ACTIONS -->
@@ -557,12 +557,12 @@ moreBtn.addEventListener("click", () => {
       extraFieldsContainer.appendChild(row);
     });
     extraFieldsContainer.style.display = "block";
-    moreBtn.textContent = "â¬†ï¸ Hide Details";
+    moreBtn.textContent = "⬆️ Hide Details";
     detailsVisible = true;
   } else {
     extraFieldsContainer.querySelectorAll("input").forEach(inp => { extraFieldsCache[inp.name] = inp.value; });
     extraFieldsContainer.style.display = "none";
-    moreBtn.textContent = "ðŸ“‹ More Details";
+    moreBtn.textContent = "📋 More Details";
     detailsVisible = false;
   }
 });
@@ -607,10 +607,10 @@ document.getElementById("addForm").addEventListener("submit", async (ev) => {
 
   const category = categoryEl.value;
   const subCategory = subCategoryEl.value;
-  if (category !== "Others" && !subCategory) { setMsg("âŒ Category & Subcategory required"); return; }
+  if (category !== "Others" && !subCategory) { setMsg("❌ Category & Subcategory required"); return; }
 
   const assetNumber = (category === "Others") ? (assetSlEl.value || "").trim() : generateAssetNumber();
-  if (!assetNumber) { setMsg("âŒ Asset number required"); return; }
+  if (!assetNumber) { setMsg("❌ Asset number required"); return; }
   assetSlEl.value = assetNumber; generateBarcode();
 
   const fd = new FormData();
@@ -641,7 +641,7 @@ document.getElementById("addForm").addEventListener("submit", async (ev) => {
       headers: { Authorization: `Bearer ${token}` }
     });
     const exists = await check.json();
-    if (exists.exists) { setMsg("âŒ Asset already exists"); return; }
+    if (exists.exists) { setMsg("❌ Asset already exists"); return; }
 
     const res = await fetch(API_BASE, {
       method: "POST",
@@ -650,14 +650,14 @@ document.getElementById("addForm").addEventListener("submit", async (ev) => {
     });
     const data = await res.json();
     if (res.ok) {
-      setMsg("âœ… Asset added successfully", "green");
+      setMsg("✅ Asset added successfully", "green");
       assetCounter++;
       localStorage.setItem("assetCounter", assetCounter);
       setTimeout(() => window.location.href = "view_assets.html", 1500);
-    } else setMsg(data.msg || data.message || "âŒ Failed to add asset");
+    } else setMsg(data.msg || data.message || "❌ Failed to add asset");
   } catch (err) {
     console.error(err);
-    setMsg("âŒ Error adding asset: " + err.message);
+    setMsg("❌ Error adding asset: " + err.message);
   }
 });
 
