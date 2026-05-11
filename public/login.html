@@ -36,6 +36,7 @@
       color: #fff;
       position: relative;
       z-index: 1;
+      margin-top: -80px; /* Lift the container up */
     }
 
     .auth-logo {
@@ -100,7 +101,7 @@
 
   <!-- Forgot Password Form -->
   <div id="forgotForm" class="hidden">
-    <h2>📧 Forgot Password</h2>
+    <h2>🔑 Forgot Password</h2>
     <select id="fpStation"></select>
     <input type="email" id="fpEmail" placeholder="Email" readonly>
     <button onclick="sendOTP()">Send OTP</button>
