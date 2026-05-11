@@ -89,7 +89,7 @@ async function seedUsers() {
         {
           username: station.name.trim(),
           email: normalizedEmail,
-          password: await bcrypt.hash("default123", 10), // default password
+          password: "default@123", 
           role: "user",
           status: "active",
           verified: true,
