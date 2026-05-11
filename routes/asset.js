@@ -224,6 +224,68 @@ router.get("/received", authenticateJWT, async (req, res) => {
   }
 });
 
+// -------------------------------------------------------
+// 🔴 SOFT DELETE (DISPOSAL) ROUTES 
+// -------------------------------------------------------
+
+router.get("/disposal-log", authenticateJWT, async (req, res) => {
+    try {
+        const logs = await DisposalLog.findAll({ order: [["deletedAt", "DESC"]] });
+        res.json(logs);
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch disposal log." });
+    }
+});
+
+router.post("/dispose", authenticateJWT, (req, res) => {
+    disposalUpload(req, res, async (err) => {
+        if (err) return res.status(400).json({ error: err.message });
+        const t = await sequelize.transaction();
+        try {
+            const { assetNumber, reason, approvedBy, approvedBy2, remarks, location } = req.body;
+            const asset = await Asset.findOne({ where: lowerCaseWhere("asset_number", assetNumber), transaction: t });
+
+            if (!asset) { await t.rollback(); return res.status(404).json({ error: "Asset not found." }); }
+
+            const activeIssue = await IssuedAsset.findOne({ where: { status: 'issued', asset_number: asset.asset_number }, transaction: t });
+            if (activeIssue) { await t.rollback(); return res.status(400).json({ error: "Cannot dispose issued asset." }); }
+            
+            await asset.update({ status: "disposed" }, { transaction: t });
+            const logRecord = await DisposalLog.create({
+                asset_number: asset.asset_number, reason, approvedBy, approvedBy2, remarks,
+                deletedBy: req.user.email, deletedAt: new Date(),
+                location: location ? JSON.parse(location) : null,
+                approvalDocUrl: req.file ? `/uploads/assets/${req.file.filename}` : null,
+            }, { transaction: t });
+
+            await t.commit();
+            res.json({ success: true, logId: logRecord.id });
+        } catch (err) {
+            if (t.finished !== 'commit') await t.rollback();
+            res.status(500).json({ error: "Failed to process disposal." });
+        }
+    });
+});
+
+router.post("/undo-dispose", authenticateJWT, async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+        const { assetNumber } = req.body;
+        const asset = await Asset.findOne({ where: lowerCaseWhere("asset_number", assetNumber), transaction: t });
+        if (!asset || asset.status !== 'disposed') { await t.rollback(); return res.status(400).json({ error: "Invalid request." }); }
+
+        const disposalRecord = await DisposalLog.findOne({ where: lowerCaseWhere("asset_number", assetNumber), order: [["deletedAt", "DESC"]], transaction: t });
+        await asset.update({ status: "available" }, { transaction: t });
+        if (disposalRecord) await disposalRecord.destroy({ transaction: t });
+
+        await t.commit();
+        res.json({ success: true });
+    } catch (err) {
+        if (t.finished !== 'commit') await t.rollback();
+        res.status(500).json({ error: "Failed to undo disposal." });
+    }
+});
+
 // 🟦 Check asset number exists
 router.get("/check/:assetNumber", authenticateJWT, async (req, res) => {
   try {
@@ -486,67 +548,6 @@ router.post("/receive", authenticateJWT, async (req, res) => {
   }
 });
 
-// -------------------------------------------------------
-// 🔴 SOFT DELETE (DISPOSAL) ROUTES 
-// -------------------------------------------------------
-
-router.get("/disposal-log", authenticateJWT, async (req, res) => {
-    try {
-        const logs = await DisposalLog.findAll({ order: [["deletedAt", "DESC"]] });
-        res.json(logs);
-    } catch (err) {
-        res.status(500).json({ error: "Failed to fetch disposal log." });
-    }
-});
-
-router.post("/dispose", authenticateJWT, (req, res) => {
-    disposalUpload(req, res, async (err) => {
-        if (err) return res.status(400).json({ error: err.message });
-        const t = await sequelize.transaction();
-        try {
-            const { assetNumber, reason, approvedBy, approvedBy2, remarks, location } = req.body;
-            const asset = await Asset.findOne({ where: lowerCaseWhere("asset_number", assetNumber), transaction: t });
-
-            if (!asset) { await t.rollback(); return res.status(404).json({ error: "Asset not found." }); }
-
-            const activeIssue = await IssuedAsset.findOne({ where: { status: 'issued', asset_number: asset.asset_number }, transaction: t });
-            if (activeIssue) { await t.rollback(); return res.status(400).json({ error: "Cannot dispose issued asset." }); }
-            
-            await asset.update({ status: "disposed" }, { transaction: t });
-            const logRecord = await DisposalLog.create({
-                asset_number: asset.asset_number, reason, approvedBy, approvedBy2, remarks,
-                deletedBy: req.user.email, deletedAt: new Date(),
-                location: location ? JSON.parse(location) : null,
-                approvalDocUrl: req.file ? `/uploads/assets/${req.file.filename}` : null,
-            }, { transaction: t });
-
-            await t.commit();
-            res.json({ success: true, logId: logRecord.id });
-        } catch (err) {
-            if (t.finished !== 'commit') await t.rollback();
-            res.status(500).json({ error: "Failed to process disposal." });
-        }
-    });
-});
-
-router.post("/undo-dispose", authenticateJWT, async (req, res) => {
-    const t = await sequelize.transaction();
-    try {
-        const { assetNumber } = req.body;
-        const asset = await Asset.findOne({ where: lowerCaseWhere("asset_number", assetNumber), transaction: t });
-        if (!asset || asset.status !== 'disposed') { await t.rollback(); return res.status(400).json({ error: "Invalid request." }); }
-
-        const disposalRecord = await DisposalLog.findOne({ where: lowerCaseWhere("asset_number", assetNumber), order: [["deletedAt", "DESC"]], transaction: t });
-        await asset.update({ status: "available" }, { transaction: t });
-        if (disposalRecord) await disposalRecord.destroy({ transaction: t });
-
-        await t.commit();
-        res.json({ success: true });
-    } catch (err) {
-        if (t.finished !== 'commit') await t.rollback();
-        res.status(500).json({ error: "Failed to undo disposal." });
-    }
-});
 
 // 🛑 HARD DELETE (DISABLED)
 router.delete("/:asset_number", authenticateJWT, async (req, res) => {
