@@ -52,8 +52,8 @@ router.post("/", upload.single("screenshot"), async (req, res) => {
       console.warn("⚠️ Failed to save contact request to Database:", dbErr.message);
     }
 
-    // Determine target developer email recipient
-    const devEmail = process.env.DEV_EMAIL || process.env.GMAIL_USER || process.env.SMTP_USER;
+    // Determine target developer email recipient (Defaults to tohidahmed666@gmail.com for Resend compatibility)
+    const devEmail = process.env.DEV_EMAIL || "tohidahmed666@gmail.com";
 
     // 2. ATTEMPT TO SEND EMAIL NOTIFICATION
     let emailSent = false;
