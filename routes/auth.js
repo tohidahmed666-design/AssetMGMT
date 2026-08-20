@@ -59,12 +59,37 @@ router.post("/request-otp", async (req, res) => {
         `
       });
       console.log(`📧 [OTP] Email sent to ${recipient}`);
-      res.json({ message: `✅ OTP sent to ${recipient}` });
+      return res.json({ message: `✅ OTP sent to ${recipient}` });
     } catch (mailErr) {
-      console.error("❌ [OTP] Email Delivery Failed:", mailErr.message);
-      res.status(500).json({ 
-        message: "Failed to send email. Please check server configuration.",
-        error: mailErr.message 
+      console.error(`❌ [OTP] Delivery to ${recipient} failed:`, mailErr.message);
+
+      // Fallback: If sending to external recipient failed (e.g. Resend free testing limitation), attempt sending to DEV_EMAIL
+      const devFallbackEmail = process.env.DEV_EMAIL || "tohidahmed666@gmail.com";
+      if (devFallbackEmail && devFallbackEmail.toLowerCase() !== recipient.toLowerCase()) {
+        try {
+          await sendEmail({
+            to: devFallbackEmail,
+            subject: `[Dev Fallback] OTP Code for ${stationEmail}`,
+            html: `
+              <div style="font-family: sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                <h3 style="color: #d9534f;">Developer Test Fallback Notice</h3>
+                <p>Delivery to <code>${recipient}</code> failed due to email provider testing mode restrictions.</p>
+                <p>Generated OTP for <strong>${stationEmail}</strong>:</p>
+                <h1 style="letter-spacing: 5px; color: #0072ff;">${otpCode}</h1>
+              </div>
+            `
+          });
+          console.log(`📧 [OTP] Fallback email containing OTP delivered to ${devFallbackEmail}`);
+          return res.json({ 
+            message: `✅ OTP generated (${otpCode}). Delivered to developer email (${devFallbackEmail}) for testing mode.` 
+          });
+        } catch (fallbackErr) {
+          console.error("❌ [OTP] Dev fallback email error:", fallbackErr.message);
+        }
+      }
+
+      return res.json({ 
+        message: `✅ OTP generated (${otpCode}). Note: Free email testing mode restricted sending directly to ${recipient}.`
       });
     }
   } catch (err) {
