@@ -11,7 +11,7 @@ const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const nodemailer = require("nodemailer");
+const { sendEmail } = require("../utils/mailer");
 const { Op, Sequelize } = require("sequelize");
 const { Asset, IssuedAsset, sequelize } = require("../models"); 
 const { authenticateJWT } = require("../middleware/auth");
@@ -112,27 +112,12 @@ const lowerCaseWhere = (col, value) =>
 
 
 // =======================================================
-// ✉️ Email Setup
+// ✉️ Email Setup (Delegated to universal mailer utility)
 // =======================================================
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false, 
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
-
-async function sendEmail(to, subject, html) {
+async function sendAssetEmail(to, subject, html) {
   if (!to) return;
   try {
-    await transporter.sendMail({
-      from: `"Asset Management" <${process.env.SMTP_USER}>`,
-      to,
-      subject,
-      html,
-    });
+    await sendEmail({ to, subject, html });
   } catch (err) {
     console.error(`❌ Email error sending to ${to}:`, err.message);
   }
