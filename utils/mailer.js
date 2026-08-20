@@ -283,6 +283,11 @@ async function sendEmailViaSendGrid({
       errorText
     );
 
+    if (errorText.includes("Maximum credits exceeded")) {
+      console.error("👉 SendGrid Free Plan limit reached (100 emails/day or trial expired).");
+      console.error("👉 FIX: Switch to Resend API by setting RESEND_API_KEY on Render (3,000 free emails/month at https://resend.com) or upgrade your SendGrid account.");
+    }
+
     throw new Error(
       `SendGrid API status ${response.status}: ${errorText}`
     );
@@ -628,21 +633,19 @@ async function sendEmail(options) {
    * ==========================================================
    */
   if (process.env.SENDGRID_API_KEY) {
-
     console.log(
       "📤 Email provider: SendGrid Web API"
     );
 
-    /**
-     * IMPORTANT:
-     * Do NOT catch the error and fall back to SMTP.
-     *
-     * Any SendGrid error should be visible directly so it can
-     * be diagnosed from the Render logs.
-     */
-    return await sendEmailViaSendGrid(
-      options
-    );
+    try {
+      return await sendEmailViaSendGrid(options);
+    } catch (err) {
+      if (process.env.RESEND_API_KEY) {
+        console.warn("⚠️ SendGrid failed, attempting Resend API fallback...", err.message);
+      } else {
+        throw err;
+      }
+    }
   }
 
 
